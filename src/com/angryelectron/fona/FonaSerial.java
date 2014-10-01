@@ -97,6 +97,12 @@ public class FonaSerial implements SerialPortEventListener {
         if (event.getEventType() != SerialPortEvent.DATA_AVAILABLE) {
             return;
         }
+        /**
+         * TODO: this method as-is doesn't work for multi-line responses, such
+         * as those returned by any query/status command. I believe every
+         * response ends with \r\nOK\r\n or \r\n\ERROR\r\n, so this method
+         * should be rewritten to stop reading based on that.
+         */
         try {
             StringBuilder builder = new StringBuilder();
             int i;
@@ -197,11 +203,11 @@ public class FonaSerial implements SerialPortEventListener {
         this.write(command);
         return this.read(timeout);
     }
-       
+
     /**
-     * Send an AT command with default value.  Checks if response is OK.
-     * Intended as a short-cut for commands that don't return anything 
-     * meaningful.
+     * Send an AT command with default value. Checks if response is OK. Intended
+     * as a short-cut for commands that don't return anything meaningful.
+     *
      * @param command At command
      * @throws FonaException if response is not OK.
      */
