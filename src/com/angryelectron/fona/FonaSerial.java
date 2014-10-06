@@ -10,8 +10,10 @@ import gnu.io.SerialPort;
 import gnu.io.SerialPortEvent;
 import gnu.io.SerialPortEventListener;
 import gnu.io.UnsupportedCommOperationException;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.TooManyListenersException;
 
@@ -55,6 +57,7 @@ public class FonaSerial implements SerialPortEventListener {
             serialPort.addEventListener(this);
             outStream = serialPort.getOutputStream();
             inStream = serialPort.getInputStream();
+            flush();
 
         } catch (NoSuchPortException ex) {
             throw new FonaException("Invalid port.");
@@ -96,35 +99,35 @@ public class FonaSerial implements SerialPortEventListener {
     public void serialEvent(SerialPortEvent event) {
         if (event.getEventType() != SerialPortEvent.DATA_AVAILABLE) {
             return;
-        }
-        /**
-         * TODO: this method as-is doesn't work for multi-line responses, such
-         * as those returned by any query/status command. I believe every
-         * response ends with \r\nOK\r\n or \r\n\ERROR\r\n, so this method
-         * should be rewritten to stop reading based on that.
-         */
+        }        
         try {
+            BufferedReader buffer = new BufferedReader(new InputStreamReader(inStream));
             StringBuilder builder = new StringBuilder();
-            int i;
-            int newlineCount = 0;
-            while (0 <= (i = inStream.read())) {
-                if (i == '\n') {
-                    //TODO: handle multi-line responses
-                    newlineCount++;
-                    if (newlineCount > 1) {
-                        synchronized (this) {
-                            readBuffer = builder.toString();
-                            this.notify();
-                            return;
-                        }
+            String line;
+            while ((line =buffer.readLine()) != null) { 
+                builder.append(line);
+                if (line.equals("OK") || line.contains("ERROR")) {
+                    synchronized(this) {
+                        readBuffer = builder.toString();
+                        this.notify();
+                        return;
                     }
-                } else if (i != '\r') {
-                    builder.append((char) i);
                 }
             }
         } catch (IOException ex) {
             //TODO: handle this better.
             System.out.println(ex.getMessage());
+        }
+    }
+    
+    /**
+     * Discard and serial data waiting to be read.
+     * @throws java.io.IOException
+     */
+    public void flush() throws IOException {
+        int bytes = inStream.available();
+        if (bytes > 0) {
+            inStream.skip(bytes);
         }
     }
 
@@ -203,7 +206,7 @@ public class FonaSerial implements SerialPortEventListener {
         this.write(command);
         return this.read(timeout);
     }
-
+    
     /**
      * Send an AT command with default value. Checks if response is OK. Intended
      * as a short-cut for commands that don't return anything meaningful.
@@ -216,5 +219,5 @@ public class FonaSerial implements SerialPortEventListener {
         if (!this.read(FONA_DEFAULT_TIMEOUT).equals("OK")) {
             throw new FonaException("AT command did not return OK.");
         }
-    }
+    }    
 }

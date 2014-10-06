@@ -73,10 +73,10 @@ public class Fona {
             throw new FonaException("Invalid pin value (1-3).");
         }
         String response = serial.atCommand("AT+SGPIO=1," + pin);
-        if (response.endsWith("0")) return 0;
-        else if (response.endsWith("1")) return 1;
+        if (response.contains("0")) return 0;
+        else if (response.contains("1")) return 1;
         else {
-            throw new FonaException("GPIO read failed.");
+            throw new FonaException("GPIO read failed: " + response);
         }                            
     }
     
@@ -120,10 +120,10 @@ public class Fona {
     
     public boolean gprsIsEnabled() throws FonaException {
         String response = serial.atCommand("AT+CGATT?");
-        if (response.endsWith("0")) return false;
-        else if (response.endsWith("1")) return true;
+        if (response.contains("1")) return true;
+        else if (response.contains("0")) return false;
         else {
-            throw new FonaException("GPRS status check failed.");
+            throw new FonaException("GPRS status check failed: " + response);
         }                            
     }
     
