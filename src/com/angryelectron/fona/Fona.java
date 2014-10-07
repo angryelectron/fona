@@ -189,26 +189,61 @@ public class Fona {
     
     /**
      * Received signal strength indicator.
-     * @return RSSI in dBm
+     * @return RSSI in dBm between -54dBm and -115dBm.  -999dBM indicates that
+     * the signal strength is not known or is undetectable.
+     * 
+     * @throws com.angryelectron.fona.FonaException
      */
-    public Integer simRSSI() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    public Integer simRSSI() throws FonaException {
+        String response = serial.atCommand("AT+CSQ");
+        if (response.contains("ERROR")) {
+            throw new FonaException("Signal quality report failed: " + response);
+        }
+        String rssi = response.substring(response.indexOf(":") + 2, response.indexOf(",") - 1);
+        Integer dbm = Integer.parseInt(rssi);
+        switch(dbm) {
+            case 0:
+                return -115; /* may be less */
+            case 1:
+                return -111;
+            case 31:
+                return -52;
+            case 99:
+                return -999; /* not known or not detectable */
+            default:
+                return (dbm * 2) - 114;
+        }
     }
     
     /**
      * Name of Service Provider.  Value is read from the SIM.
      * @return Name of Service Provider.
+     * @throws com.angryelectron.fona.FonaException
      */
-    public String simProvider() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    public String simProvider() throws FonaException {
+        String response = serial.atCommand("AT+CSPN?");
+        if (response.contains("ERROR")) {
+            throw new FonaException("Reading service provider failed: " + response);
+        }
+        /**
+         * Extract provider name from response.  Response format is
+         * +CSPN:"<spn>",<display mode>.
+         */
+        return response.substring(response.indexOf(":") + 3, response.indexOf(",") - 1);
     }
     
     /**
      * Get temperature of SIM800 module.
      * @return degrees Celsius -40 - 90
+     * @throws com.angryelectron.fona.FonaException
      */
-    public Double temperature() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    public Double temperature() throws FonaException {
+        String response = serial.atCommand("AT+CMTE?");
+        if (response.contains("ERROR")) {
+            throw new FonaException("Read temperature failed: " + response);
+        }
+        String temperature = response.substring(response.indexOf(",")+1, response.length()-2);
+        return Double.parseDouble(temperature);
     }
     
 }
