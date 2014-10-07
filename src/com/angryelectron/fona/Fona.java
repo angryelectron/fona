@@ -53,7 +53,7 @@ public class Fona {
      * @throws com.angryelectron.fona.FonaException
      */
     public void gpioSetOutput(int pin, int value) throws FonaException {        
-        if (1 <  pin || pin > 3) {
+        if (pin <  1 || pin > 3) {
             throw new FonaException("Invalid pin value (1-3).");
         }
         String response = serial.atCommand("AT+SGPIO=0," +pin + ",1," + value);
@@ -69,7 +69,7 @@ public class Fona {
      * @throws com.angryelectron.fona.FonaException
      */
     public int gpioGetInput(int pin) throws FonaException {
-        if (1 <  pin || pin > 3) {
+        if (pin <  1 || pin > 3) {
             throw new FonaException("Invalid pin value (1-3).");
         }
         String response = serial.atCommand("AT+SGPIO=1," + pin);
@@ -86,7 +86,7 @@ public class Fona {
      * @throws com.angryelectron.fona.FonaException
      */
     public void gpioSetInput(int pin) throws FonaException {
-        if (1 <  pin || pin > 3) {
+        if (pin <  1 || pin > 3) {
             throw new FonaException("Invalid pin value (1-3).");
         }
         String response = serial.atCommand("AT+SGPIO=0," + pin + ",0");

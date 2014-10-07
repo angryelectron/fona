@@ -22,10 +22,10 @@ public class FonaTest {
     private static final String PORT = "/dev/ttyUSB1";
     private static final Integer BAUD = 115200;
     
-    //Credentials for Rogers Wireless
+    //Credentials for Rogers Wireless required for testing GPRS.
     private static final String APN = "internet.com";
     private static final String USER = "wapuser1";
-    private static final String PWD = "wap";
+    private static final String PWD = "wap";    
             
     private static final Fona fona = new Fona();
 
@@ -295,42 +295,24 @@ public class FonaTest {
      * Test of simRSSI method, of class Fona.
      */
     @Test
-    public void testSimRSSI() {
-        System.out.println("simRSSI");
-        Fona instance = new Fona();
-        Integer expResult = null;
-        Integer result = instance.simRSSI();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testSimRSSI() throws FonaException {
+        System.out.println("simRSSI: " + fona.simRSSI() + "dBm");        
     }
 
     /**
      * Test of simProvider method, of class Fona.
      */
     @Test
-    public void testSimProvider() {
-        System.out.println("simProvider");
-        Fona instance = new Fona();
-        String expResult = "";
-        String result = instance.simProvider();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testSimProvider() throws FonaException {
+        System.out.println("simProvider: " + fona.simProvider());        
     }
 
     /**
      * Test of temperature method, of class Fona.
      */
     @Test
-    public void testTemperature() {
-        System.out.println("temperature");
-        Fona instance = new Fona();
-        Double expResult = null;
-        Double result = instance.temperature();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testTemperature() throws FonaException {        
+        System.out.println("temperature: " + fona.temperature() + "C");
     }
 
 }
