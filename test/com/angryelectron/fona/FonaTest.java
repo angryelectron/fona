@@ -102,27 +102,11 @@ public class FonaTest {
      */
     @Test
     public void testGprs() throws FonaException {
-        System.out.println("gprsEnable");                        
-        System.out.println(fona.gprsIsEnabled());
-        System.out.println(fona.gprsIsEnabled());
-        System.out.println(fona.gprsIsEnabled());
-        System.out.println(fona.gprsIsEnabled());
-        System.out.println(fona.gprsIsEnabled());
-        
-        /*
-        if (fona.gprsIsEnabled()) {
-            fona.gprsDisable();
-            if (fona.gprsIsEnabled()) {
-                fail("GPRS did not disable");
-            }
-        } else {
-            fona.gprsEnable(APN, USER, PWD);
-            if (!fona.gprsIsEnabled()) {
-                fail("GPRS did not enable.");
-            }
-        }
-        testGprs();
-        */
+        System.out.println("gprsEnable");                                
+        fona.gprsEnable(APN, USER, PWD);
+        assertTrue(fona.gprsIsEnabled());
+        fona.gprsDisable();
+        assertFalse(fona.gprsIsEnabled());                
     }
 
     
@@ -143,30 +127,24 @@ public class FonaTest {
 
     /**
      * Test of batteryVoltage method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
-    public void testBatteryVoltage() {
-        System.out.println("batteryVoltage");
-        Fona instance = new Fona();
-        Double expResult = null;
-        Double result = instance.batteryVoltage();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testBatteryVoltage() throws FonaException {
+        System.out.println("batteryVoltage: " + fona.batteryVoltage());        
     }
 
     /**
      * Test of batteryPercent method, of class Fona.
      */
     @Test
-    public void testBatteryPercent() {
-        System.out.println("batteryPercent");
-        Fona instance = new Fona();
-        Integer expResult = null;
-        Integer result = instance.batteryPercent();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testBatteryPercent() throws FonaException {
+        System.out.println("batteryPercent: " + fona.batteryPercent());                
+    }
+    
+    @Test
+    public void testBatteryCharge() throws FonaException {
+        System.out.println("batteryChargingState: " + fona.batteryChargingState());
     }
 
     /**
@@ -247,19 +225,6 @@ public class FonaTest {
         Fona.SmsSelect selection = null;
         Fona instance = new Fona();
         instance.smsDelete(selection);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
-
-    /**
-     * Test of simPowerOff method, of class Fona.
-     */
-    @Test
-    public void testSimPowerOff() {
-        System.out.println("simPowerOff");
-        boolean urgent = false;
-        Fona instance = new Fona();
-        instance.simPowerOff(urgent);
         // TODO review the generated test code and remove the default call to fail.
         fail("The test case is a prototype.");
     }
