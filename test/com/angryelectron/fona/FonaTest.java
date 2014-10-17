@@ -5,7 +5,6 @@
  */
 package com.angryelectron.fona;
 
-import java.net.URL;
 import java.util.Date;
 import org.junit.After;
 import org.junit.Test;
@@ -112,16 +111,22 @@ public class FonaTest {
     
     /**
      * Test of gprsHttpGet method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
-    public void testGprsHttpGet() {
-        System.out.println("gprsHttpGet");
-        URL url = null;
-        Fona instance = new Fona();
-        String expResult = "";
-        String result = instance.gprsHttpGet(url);
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
+    public void testGprsHttpGet() throws FonaException {
+        System.out.println("gprsHttpGet");        
+        if (!fona.gprsIsEnabled()) {
+            fona.gprsEnable(APN, USER, PWD);
+            assertTrue("GPRS not enabled", fona.gprsIsEnabled());
+        }        
+        String response = fona.gprsHttpGet("http://httpbin.org/ip");
+        /**
+         * expected response
+         * {
+                "origin": "24.114.38.60"
+                           }
+         */
         fail("The test case is a prototype.");
     }
 
@@ -231,16 +236,13 @@ public class FonaTest {
 
     /**
      * Test of simReadADC method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
-    public void testSimReadADC() {
-        System.out.println("simReadADC");
-        Fona instance = new Fona();
-        Double expResult = null;
-        Double result = instance.simReadADC();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testSimReadADC() throws FonaException {        
+        System.out.println("simReadADC: " + fona.simReadADC());
+        Integer value = fona.simReadADC();
+        assertTrue(0 <= value && value <= 2800);
     }
 
     /**

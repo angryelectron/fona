@@ -4,8 +4,8 @@
  */
 package com.angryelectron.fona;
 
-import java.net.URL;
 import java.util.Date;
+import javax.xml.ws.http.HTTPException;
 
 /**
  * Control Fona / SIM800 via Serial Port.
@@ -35,6 +35,13 @@ public class Fona {
         }
 
         serial.atCommand("ATE0"); //turn off local echo
+        
+        /**
+         * GPRS is enabled by default, however it isn't actually useful as
+         * the APN has not yet been set, so disable it to avoid 601/network
+         * errors.
+         */
+        //serial.atCommand("AT+CGATT=0", 10000); //disable GPRS                      
     }
 
     /**
@@ -111,25 +118,21 @@ public class Fona {
     }
 
     public void gprsEnable(String apn, String user, String password) throws FonaException {
-        try {
+        try {            
             serial.atCommand("AT+CGATT=1", 10000);
             serial.atCommandOK("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"APN\",\"" + apn + "\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"USER\",\"" + user + "\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"PWD\",\"" + password + "\"");
             serial.atCommandOK("AT+SAPBR=1,1");
-        } catch (FonaException ex) {
-            //one of the above commands did not return OK.
+        } catch (FonaException ex) {            
             throw new FonaException("GPRS enable failed.  Check credentials.");
         }
     }
 
     public void gprsDisable() throws FonaException {
         try {            
-            serial.atCommand("AT+SAPBR=0,1");      
-            /**
-             * Max response time is 10seconds according to data sheet.
-             */
+            serial.atCommand("AT+SAPBR=0,1");                  
             serial.atCommand("AT+CGATT=0", 10000); 
         } catch (FonaException ex) {
             throw new FonaException("GPRS disable failed: " + ex.getMessage());
@@ -147,8 +150,50 @@ public class Fona {
         }
     }
 
-    public String gprsHttpGet(URL url) {
-        throw new UnsupportedOperationException("Not Implemented.");
+    /**
+     * HTTP GET request.
+     * @param url URL.  
+     * @return HTTP response.
+     * @throws FonaException 
+     */
+    public String gprsHttpGet(String url) throws FonaException {        
+        if (!url.toLowerCase().startsWith("http")) {
+            throw new FonaException("Invalid protocol.  Only HTTP is supported.");
+        }
+        if (!this.gprsIsEnabled()) {
+            throw new FonaException("GPRS is not enabled.");
+        }
+        String address = url.replaceAll("http://", "");        
+        serial.atCommandOK("AT+HTTPINIT");
+        serial.atCommandOK("AT+HTTPPARA=\"CID\",1");
+        serial.atCommandOK("AT+HTTPPARA=\"URL\",\"" + address + "\"");
+        
+        String httpResult = serial.atCommand("AT+HTTPACTION=0", 100000, "HTTPACTION");
+        /* TODO: above command returns "+HTTPACTION: 0,200,30" 
+         * need a way to read it, as it doesn't end with OK or ERROR
+         */                
+        if (!httpResult.startsWith("+HTTPACTION: 0")) {
+            /* try to close the http connection so subsequent runs don't fail */
+            serial.atCommand("AT+HTTPTERM");
+            throw new FonaException("Invalid HTTP response: " + httpResult);
+        }
+        String httpFields[] = httpResult.split(",");
+        Integer httpStatusCode = Integer.parseInt(httpFields[1]);
+        if (httpStatusCode != 200) {
+            throw new HTTPException(httpStatusCode);
+        }
+        
+        String response = serial.atCommand("AT+HTTPREAD", 5000);
+        /**
+         * TODO: parse response in format:  
+         * +HTTPREAD: 30
+            {
+                "origin": "24.114.38.60"
+            }
+            OK
+         */
+        serial.atCommandOK("AT+HTTPTERM");
+        return response;
     }
 
     /**
@@ -245,8 +290,20 @@ public class Fona {
             serial.atCommand("AT+CPOWD=0");        
     }
 
-    public Double simReadADC() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    /**
+     * Read Analog/Digital Converter.
+     * @return Value between 0 and 2800.
+     * @throws FonaException if ADC read fails.
+     */
+    public Integer simReadADC() throws FonaException {
+        /* max response time 2s */
+        String response = serial.atCommand("AT+CADC?", 2000);
+        String fields[] = response.split(",");
+        if (!response.endsWith("OK") || fields[0].endsWith("0")) {
+            throw new FonaException("ADC read failed: " + response);
+        }
+        String value = fields[1].substring(0, fields[1].length() - 2);
+        return Integer.parseInt(value);        
     }
 
     public void simUnlock(String password) {

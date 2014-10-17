@@ -28,7 +28,8 @@ public class FonaSerial implements SerialPortEventListener {
     private SerialPort serialPort;
     private OutputStream outStream;
     private InputStream inStream;
-    private String readBuffer;
+    private String readBuffer;    
+    private String endMarker = "";
 
     /**
      * Default timeout value (in milliseconds) to wait for a response to a
@@ -89,9 +90,9 @@ public class FonaSerial implements SerialPortEventListener {
 
     /**
      * Internal use only. Wait for serial data to be available, then parse and
-     * put result in readBuffer. Sim800 AT responses are of the form
-     * \r\n<response>\r\n, so read data until the second \n, then notify read()
-     * that it can continue.
+     * put result in readBuffer.  If isSingleLine=true, only 1 line will be read
+     * otherwise reading continues until OK or ERROR is found.  The read() methods
+     * handle timeouts.
      *
      * @param event
      */
@@ -99,14 +100,24 @@ public class FonaSerial implements SerialPortEventListener {
     public void serialEvent(SerialPortEvent event) {
         if (event.getEventType() != SerialPortEvent.DATA_AVAILABLE) {
             return;
-        }        
+        }    
+        readBuffer = null;
         try {
             BufferedReader buffer = new BufferedReader(new InputStreamReader(inStream));
             StringBuilder builder = new StringBuilder();
             String line;
-            while ((line =buffer.readLine()) != null) { 
+            while ((line = buffer.readLine()) != null) { 
+                System.out.println("DEBUG READ: " + line);                   
                 builder.append(line);
-                if (line.equals("OK") || line.contains("ERROR")) {
+                if (!endMarker.isEmpty() && line.contains(endMarker)) {
+                    System.out.println("DEBUG ENDMARKER: " + line);                   
+                    synchronized(this) {
+                        readBuffer = builder.toString();
+                        this.notify();
+                        return;
+                    }
+                }
+                else if (line.equals("OK") || line.contains("ERROR")) {
                     synchronized(this) {
                         readBuffer = builder.toString();
                         this.notify();
@@ -139,20 +150,20 @@ public class FonaSerial implements SerialPortEventListener {
      * @throws com.angryelectron.fona.FonaException
      */
     public void write(String data) throws FonaException {
-        /**
-         * Clear the readBuffer. See read() for explanation.
-         */
-        readBuffer = null;
+        //TODO: remove this
+        System.out.println("DEBUG WRITE: " + data);        
         data += "\r";
         try {
             outStream.write(data.getBytes());
         } catch (IOException ex) {
             throw new FonaException(ex.getMessage());
         }
+        
     }
 
     /**
-     * Read an AT response.
+     * Read an AT response.  Use to gather responses to AT commands that
+     * finish with ERROR or OK.
      *
      * @param timeout Time in milliseconds to wait for a response.
      * @return AT response. Echo is off. CR and LF stripped.
@@ -179,6 +190,20 @@ public class FonaSerial implements SerialPortEventListener {
             throw new FonaException("Timeout waiting for FONA response.");
         }
         return readBuffer;
+    }
+    
+    /**
+     * Read a line from the serial port.  Use to read unsolicited responses
+     * from the Sim800.
+     * @param timeout
+     * @return
+     * @throws FonaException 
+     */
+    public String readline(String endMarker, Integer timeout) throws FonaException {
+        this.endMarker = endMarker;
+        String result = read(timeout);
+        endMarker = "";
+        return result;
     }
 
     /**
@@ -216,8 +241,14 @@ public class FonaSerial implements SerialPortEventListener {
      */
     public void atCommandOK(String command) throws FonaException {
         this.write(command);
-        if (!this.read(FONA_DEFAULT_TIMEOUT).equals("OK")) {
-            throw new FonaException("AT command did not return OK.");
+        String response = this.read(FONA_DEFAULT_TIMEOUT);
+        if (!response.equals("OK")) {
+            throw new FonaException("AT command failed: " + response);
         }
-    }    
+    }   
+    
+    public String atCommand(String command, Integer timeout, String expected) throws FonaException {
+        this.write(command);
+        return this.readline(expected, timeout);
+    }
 }
