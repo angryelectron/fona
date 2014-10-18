@@ -8,40 +8,34 @@ import java.util.Date;
 import javax.xml.ws.http.HTTPException;
 
 /**
- * Control Fona / SIM800 via Serial Port.
- *
- * TODO: implement PUT, email, FTP, SMS, Voice, Audio, FM
+ * Control Fona / SIM800 via Serial Port. Based on  {@link Sim800 AT Command Manual 
+ * http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf}.
+ * This class only implements a subset of the features supported by the SIM800.
+ * Feel free to implement any missing features by contributing to the {@link 
+ * GitHub http://github.com/angryelectron/fona} project.
  */
 public class Fona {
 
+    /**
+     * The lower level IO functions are handled by a separate class in case
+     * a different implementation is required.  Not sure about the future of
+     * the RXTX project.
+     */
     private final FonaSerial serial = new FonaSerial();
 
     /**
      * Open serial port connection to SIM800 module.
      *
-     * @param port port name
-     * @param baud baud rate. 115200 is typical.
+     * @param port Port name (/dev/ttyUSB1, COM7, etc.)
+     * @param baud Baud rate. 115200 is recommended.
      * @throws com.angryelectron.fona.FonaException
      */
     public void open(String port, Integer baud) throws FonaException {
         serial.open(port, baud);
-
-        /**
-         * This response will vary based on the current Echo setting: AT&FOK or
-         * just OK.
-         */
-        if (!serial.atCommand("AT&F").endsWith("OK")) {
+        if (!serial.atCommand("AT&F").contains("OK")) {
             throw new FonaException("Factory reset failed.  Can't communicate with device.");
         }
-
-        serial.atCommand("ATE0"); //turn off local echo
-        
-        /**
-         * GPRS is enabled by default, however it isn't actually useful as
-         * the APN has not yet been set, so disable it to avoid 601/network
-         * errors.
-         */
-        //serial.atCommand("AT+CGATT=0", 10000); //disable GPRS                      
+        serial.atCommand("ATE0"); //turn off local echo        
     }
 
     /**
@@ -54,9 +48,10 @@ public class Fona {
     }
 
     /**
-     * Check communication with SIM800.
+     * Check communication with SIM800.  A mostly useless method that is handy
+     * for testing and development.
      *
-     * @return true if communication is OK.
+     * @return true if SIM800 response to the most basic AT command.
      * @throws com.angryelectron.fona.FonaException
      */
     public boolean check() throws FonaException {
@@ -64,26 +59,29 @@ public class Fona {
     }
 
     /**
-     * Set state of GPIO output pin.
+     * Set state of GPIO output.
      *
-     * @param pin 1-3
+     * @param pin Pin number (1-3).
      * @param value 1=high, 0=low
      * @throws com.angryelectron.fona.FonaException
      */
     public void gpioSetOutput(int pin, int value) throws FonaException {
         if (pin < 1 || pin > 3) {
-            throw new FonaException("Invalid pin value (1-3).");
+            throw new FonaException("Invalid pin (1-3).");
+        }
+        if (value != 0 || value != 1) {
+            throw new FonaException("Invalid pin value (0,1)");
         }
         String response = serial.atCommand("AT+SGPIO=0," + pin + ",1," + value);
         if (!response.equals("OK")) {
-            throw new FonaException("GPIO write failed.");
+            throw new FonaException("gpioSetOutput failed.");
         }
     }
 
     /**
      * Read state of GPIO input pin.
      *
-     * @param pin
+     * @param pin Pin number (1-3).
      * @return 1=high, 0=low
      * @throws com.angryelectron.fona.FonaException
      */
@@ -102,9 +100,9 @@ public class Fona {
     }
 
     /**
-     * Configure GPIO pin direction.
+     * Configure GPIO pin as an input.
      *
-     * @param pin
+     * @param pin Pin number (1-3).
      * @throws com.angryelectron.fona.FonaException
      */
     public void gpioSetInput(int pin) throws FonaException {
@@ -117,23 +115,32 @@ public class Fona {
         }
     }
 
+    /**
+     * Enable GPRS.  GPRS must be enabled before using any of the other GPRS methods.
+     * Most mobile carriers publish their APN credentials.  On boot, GPRS is 
+     * enabled 
+     * @param apn
+     * @param user
+     * @param password
+     * @throws FonaException 
+     */
     public void gprsEnable(String apn, String user, String password) throws FonaException {
-        try {            
+        try {
             serial.atCommand("AT+CGATT=1", 10000);
             serial.atCommandOK("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"APN\",\"" + apn + "\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"USER\",\"" + user + "\"");
             serial.atCommandOK("AT+SAPBR=3,1,\"PWD\",\"" + password + "\"");
             serial.atCommandOK("AT+SAPBR=1,1");
-        } catch (FonaException ex) {            
+        } catch (FonaException ex) {
             throw new FonaException("GPRS enable failed.  Check credentials.");
         }
     }
 
     public void gprsDisable() throws FonaException {
-        try {            
-            serial.atCommand("AT+SAPBR=0,1");                  
-            serial.atCommand("AT+CGATT=0", 10000); 
+        try {
+            serial.atCommand("AT+SAPBR=0,1");
+            serial.atCommand("AT+CGATT=0", 10000);
         } catch (FonaException ex) {
             throw new FonaException("GPRS disable failed: " + ex.getMessage());
         }
@@ -152,28 +159,25 @@ public class Fona {
 
     /**
      * HTTP GET request.
-     * @param url URL.  
+     *
+     * @param url URL.
      * @return HTTP response.
-     * @throws FonaException 
+     * @throws FonaException
      */
-    public String gprsHttpGet(String url) throws FonaException {        
+    public String gprsHttpGet(String url) throws FonaException {
         if (!url.toLowerCase().startsWith("http")) {
             throw new FonaException("Invalid protocol.  Only HTTP is supported.");
         }
         if (!this.gprsIsEnabled()) {
             throw new FonaException("GPRS is not enabled.");
         }
-        String address = url.replaceAll("http://", "");        
+        String address = url.replaceAll("http://", "");
         serial.atCommandOK("AT+HTTPINIT");
         serial.atCommandOK("AT+HTTPPARA=\"CID\",1");
         serial.atCommandOK("AT+HTTPPARA=\"URL\",\"" + address + "\"");
-        
-        String httpResult = serial.atCommand("AT+HTTPACTION=0", 100000, "HTTPACTION");
-        /* TODO: above command returns "+HTTPACTION: 0,200,30" 
-         * need a way to read it, as it doesn't end with OK or ERROR
-         */                
+        serial.atCommandOK("AT+HTTPACTION=0");
+        String httpResult = serial.expect("HTTPACTION", 5000);
         if (!httpResult.startsWith("+HTTPACTION: 0")) {
-            /* try to close the http connection so subsequent runs don't fail */
             serial.atCommand("AT+HTTPTERM");
             throw new FonaException("Invalid HTTP response: " + httpResult);
         }
@@ -182,60 +186,57 @@ public class Fona {
         if (httpStatusCode != 200) {
             throw new HTTPException(httpStatusCode);
         }
-        
+
         String response = serial.atCommand("AT+HTTPREAD", 5000);
-        /**
-         * TODO: parse response in format:  
-         * +HTTPREAD: 30
-            {
-                "origin": "24.114.38.60"
-            }
-            OK
-         */
         serial.atCommandOK("AT+HTTPTERM");
-        return response;
+        //ignore the first line and the last line (which is "OK\n")
+        int start = response.indexOf(System.lineSeparator());
+        return response.substring(start, response.length() - 3);
     }
 
     /**
      * Get battery voltage.
+     *
      * @return Battery voltage in millivolts.
-     * @throws FonaException 
+     * @throws FonaException
      */
     public Integer batteryVoltage() throws FonaException {
         String response = serial.atCommand("AT+CBC");
         if (!response.endsWith("OK")) {
             throw new FonaException("Unexpected response: " + response);
-        }        
+        }
         String fields[] = response.split(",");
         String voltage = fields[2].substring(0, fields[2].length() - 2);
-        return Integer.parseInt(voltage);
+        return Integer.parseInt(voltage.trim());
     }
 
     /**
      * Get battery charge level.
+     *
      * @return Battery charge, as a percentage.
-     * @throws FonaException 
+     * @throws FonaException
      */
     public Integer batteryPercent() throws FonaException {
         String response = serial.atCommand("AT+CBC");
         if (!response.endsWith("OK")) {
             throw new FonaException("Unexpected response: " + response);
-        }        
-        String fields[] = response.split(",");        
+        }
+        String fields[] = response.split(",");
         return Integer.parseInt(fields[1]);
     }
-    
+
     /**
      * Get battery charging state.
+     *
      * @return 0=not charging, 1=charging, 2=charging finished
-     * @throws FonaException 
+     * @throws FonaException
      */
     public Integer batteryChargingState() throws FonaException {
         String response = serial.atCommand("AT+CBC");
         if (!response.endsWith("OK")) {
             throw new FonaException("Unexpected response: " + response);
-        }        
-        String fields[] = response.split(",");        
+        }
+        String fields[] = response.split(",");
         String subfields[] = fields[0].split(" ");
         return Integer.parseInt(subfields[1]);
     }
@@ -251,7 +252,7 @@ public class Fona {
     public void smsSend(String phoneNumber, String message) {
         throw new UnsupportedOperationException("Not Implemented.");
     }
-            
+
     public boolean smsReceived() {
         throw new UnsupportedOperationException("Not Implemented.");
     }
@@ -276,22 +277,23 @@ public class Fona {
     }
 
     /**
-     * Power-down the SIM800 module. This may have different implications depending
-     * on how the hardware has been configured. For example, a FONA with KEY
-     * tied to GND will reboot after this command, although the time required to
-     * reboot varies. In testing, sometimes this command returns "NORMAL POWER
-     * DOWN" and other times returns nothing, so the result is ignored. In
-     * general, it is probably best to use hardware-specific methods (like
-     * FONA's KEY line) to control the power state of the device.
-     *     
+     * Power-down the SIM800 module. This may have different implications
+     * depending on how the hardware has been configured. For example, a FONA
+     * with KEY tied to GND will reboot after this command, although the time
+     * required to reboot varies. In testing, sometimes this command returns
+     * "NORMAL POWER DOWN" and other times returns nothing, so the result is
+     * ignored. In general, it is probably best to use hardware-specific methods
+     * (like FONA's KEY line) to control the power state of the device.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
-    public void simPowerOff() throws FonaException {        
-            serial.atCommand("AT+CPOWD=0");        
+    public void simPowerOff() throws FonaException {
+        serial.atCommand("AT+CPOWD=0");
     }
 
     /**
      * Read Analog/Digital Converter.
+     *
      * @return Value between 0 and 2800.
      * @throws FonaException if ADC read fails.
      */
@@ -303,7 +305,7 @@ public class Fona {
             throw new FonaException("ADC read failed: " + response);
         }
         String value = fields[1].substring(0, fields[1].length() - 2);
-        return Integer.parseInt(value);        
+        return Integer.parseInt(value.trim());
     }
 
     public void simUnlock(String password) {
