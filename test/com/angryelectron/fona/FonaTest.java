@@ -20,7 +20,13 @@ public class FonaTest {
     private static final String APN = "internet.com";
     private static final String USER = "wapuser1";
     private static final String PWD = "wap";
-
+    private static final String SMTP = "smtp.rogerswirelessdata.com";
+    
+    //E-Mail Settings.  Use an address of an account you can access
+    //to verify the message.
+    private static final String TO_ADDRESS = "abythell@ieee.org";
+    private static final String TO_NAME = "Andrew Bythell";
+    
     private static final Fona fona = new Fona();
 
     public FonaTest() {
@@ -144,32 +150,19 @@ public class FonaTest {
     public void testBatteryCharge() throws FonaException {
         System.out.println("batteryChargingState: " + fona.batteryChargingState());
     }
-
-    /**
-     * Test of timeSync method, of class Fona.
-     */
-    @Test
-    public void testTimeSync() {
-        System.out.println("timeSync");
-        boolean enable = false;
-        Fona instance = new Fona();
-        instance.timeSync(enable);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
-
+    
     /**
      * Test of time method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
-    public void testTime() {
-        System.out.println("time");
-        Fona instance = new Fona();
-        Date expResult = null;
-        Date result = instance.time();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+    public void testTime() throws FonaException {
+        System.out.print("testTime: ");
+        fona.gprsEnable(APN, USER, PWD);
+        Date date = fona.gprsTime();
+        System.out.println(date);
+        assertNotNull(date);
+        fona.gprsDisable();
     }
 
     /**
@@ -274,6 +267,23 @@ public class FonaTest {
     @Test
     public void testTemperature() throws FonaException {
         System.out.println("temperature: " + fona.temperature() + "C");
+    }
+    
+    @Test
+    public void testEmail() throws FonaException {                
+        fona.gprsDisable();
+        fona.gprsEnable(APN, USER, PWD);
+        fona.emailSMTP(SMTP, 25);        
+        
+        FonaEmailMessage email = new FonaEmailMessage();
+        email.fromAddress="fona@test.com";
+        email.fromName="Fona";
+        email.to(TO_ADDRESS, TO_NAME);
+        email.subject("Fona Java Library Email Test");
+        email.body("Hello, from FONA.");
+        
+        fona.emailSend(email);                
+        fona.gprsDisable();
     }
 
 }

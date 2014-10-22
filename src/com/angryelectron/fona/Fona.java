@@ -4,22 +4,29 @@
  */
 package com.angryelectron.fona;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Map;
 import javax.xml.ws.http.HTTPException;
 
 /**
- * Control Fona / SIM800 via Serial Port. Based on  {@link Sim800 AT Command Manual 
+ * Control Fona / SIM800 via Serial Port. Based on null {@link Sim800 AT Command Manual
  * http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf}.
+ * <p>
+ * All Network-based operations use a Bearer Profile Identifier of 1.
+ * <p>
  * This class only implements a subset of the features supported by the SIM800.
- * Feel free to implement any missing features by contributing to the {@link 
- * GitHub http://github.com/angryelectron/fona} project.
+ * Feel free to implement any missing features by contributing to the {@link
+ * GitHub http://github.com/angryelectron/fona} project.</p>
  */
 public class Fona {
 
     /**
-     * The lower level IO functions are handled by a separate class in case
-     * a different implementation is required.  Not sure about the future of
-     * the RXTX project.
+     * The lower level IO functions are handled by a separate class in case a
+     * different implementation is required. Not sure about the future of the
+     * RXTX project.
      */
     private final FonaSerial serial = new FonaSerial();
 
@@ -48,7 +55,7 @@ public class Fona {
     }
 
     /**
-     * Check communication with SIM800.  A mostly useless method that is handy
+     * Check communication with SIM800. A mostly useless method that is handy
      * for testing and development.
      *
      * @return true if SIM800 response to the most basic AT command.
@@ -56,6 +63,78 @@ public class Fona {
      */
     public boolean check() throws FonaException {
         return serial.atCommand("AT").equals("OK");
+    }
+    
+    public void emailSMTP(String server, Integer port) throws FonaException {
+        /* this number must match the bearer profide ID used in enableGPRS() */
+        serial.atCommandOK("AT+EMAILCID=1");
+        
+        /* set the SMTP server response timeout value */
+        serial.atCommandOK("AT+EMAILTO=30");
+        
+        /* set SMTP server */
+        serial.atCommandOK("AT+SMTPSRV=\""+ server + "\"," + port);
+        
+        /* don't require SMTP authorization */
+        serial.atCommandOK("AT+SMTPAUTH=0");
+    }
+    
+    public void emailSMTP(String server, Integer port, String user, String password) throws FonaException {
+        emailSMTP(server, port);        
+        
+        /* require SMTP authorization */
+        serial.atCommandOK("AT+SMTPAUTH=1,\""+user+"\",\""+password+"\"");
+    }
+    
+    public void emailSend(FonaEmailMessage email) throws FonaException {        
+        
+        /**
+         * Set FROM:
+         */
+        serial.atCommandOK("AT+SMTPFROM=\"" + email.fromAddress + "\",\"" + email.fromName +"\"");
+        
+        /**
+         * Set TO: recipients
+         */
+        int index = 0;
+        for (Map.Entry<String, String> entry : email.to.entrySet()) {            
+            serial.atCommandOK("At+SMTPRCPT=0," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+            index++;
+        }
+        
+        /**
+         * Set CC: recipients
+         */
+        index = 0;
+        for (Map.Entry<String, String> entry : email.cc.entrySet()) {            
+            serial.atCommandOK("At+SMTPRCPT=1," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+            index++;
+        }
+        
+        /**
+         * Set BCC: recipients
+         */
+        index = 0;
+        for (Map.Entry<String, String> entry : email.bcc.entrySet()) {            
+            serial.atCommandOK("At+SMTPRCPT=2," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+        }
+        
+        /**
+         * Set subject and body.
+         */
+        serial.atCommandOK("AT+SMTPSUB=\""+ email.subject + "\"");
+        serial.write("AT+SMTPBODY="+ email.body.length());
+        serial.expect("DOWNLOAD", 5000);
+        serial.atCommandOK(email.body);
+        
+        /**
+         * Send it.
+         */
+        serial.atCommandOK("AT+SMTPSEND");
+        String response = serial.expect("+SMTPSEND", 5000);
+        if (!response.equals("+SMTPSEND: 1")) {
+            throw new FonaException("Email send failed: " + response);
+        }
     }
 
     /**
@@ -69,7 +148,7 @@ public class Fona {
         if (pin < 1 || pin > 3) {
             throw new FonaException("Invalid pin (1-3).");
         }
-        if (value != 0 || value != 1) {
+        if (value != 0 && value != 1) {
             throw new FonaException("Invalid pin value (0,1)");
         }
         String response = serial.atCommand("AT+SGPIO=0," + pin + ",1," + value);
@@ -116,13 +195,14 @@ public class Fona {
     }
 
     /**
-     * Enable GPRS.  GPRS must be enabled before using any of the other GPRS methods.
-     * Most mobile carriers publish their APN credentials.  On boot, GPRS is 
-     * enabled 
+     * Enable GPRS. GPRS must be enabled before using any of the other GPRS
+     * methods. Most mobile carriers publish their APN credentials. On boot,
+     * GPRS is 'enabled' but not 'authenticated'.
+     *
      * @param apn
      * @param user
      * @param password
-     * @throws FonaException 
+     * @throws FonaException
      */
     public void gprsEnable(String apn, String user, String password) throws FonaException {
         try {
@@ -133,7 +213,7 @@ public class Fona {
             serial.atCommandOK("AT+SAPBR=3,1,\"PWD\",\"" + password + "\"");
             serial.atCommandOK("AT+SAPBR=1,1");
         } catch (FonaException ex) {
-            throw new FonaException("GPRS enable failed.  Check credentials.");
+            throw new FonaException("GPRS enable failed: " + ex.getMessage());
         }
     }
 
@@ -147,6 +227,7 @@ public class Fona {
     }
 
     public boolean gprsIsEnabled() throws FonaException {
+        //TODO: also query the GPRS context w/ AT+SAPBR=2,1
         String response = serial.atCommand("AT+CGATT?");
         if (response.contains("1")) {
             return true;
@@ -241,12 +322,26 @@ public class Fona {
         return Integer.parseInt(subfields[1]);
     }
 
-    public void timeSync(boolean enable) {
-        throw new UnsupportedOperationException("Not Implemented.");
-    }
-
-    public Date time() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    /**
+     * Get Time from GSM connection. This will fail with error code 601 if GPRS
+     * has not been enabled.
+     *
+     * @return DateTime in UTC.
+     * @throws com.angryelectron.fona.FonaException
+     */
+    public Date gprsTime() throws FonaException {
+        String response = serial.atCommand("AT+CIPGSMLOC=2,1");
+        //+CIPGSMLOC: 0,2014/10/20,21:36:10
+        if (!response.startsWith("+CIPGSMLOC: 0")) {
+            throw new FonaException("Can't get time: " + response);
+        }
+        DateFormat df = new SimpleDateFormat("yyyy/MM/dd kk:mm:ss");
+        String field[] = response.split(",");
+        try {
+            return df.parse(field[1] + " " + field[2]);
+        } catch (ParseException ex) {
+            throw new FonaException(ex.getMessage());
+        }
     }
 
     public void smsSend(String phoneNumber, String message) {

@@ -21,8 +21,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * IO methods for communicating with a SIM800 Series module over serial
- * port using RXTX.
+ * IO methods for communicating with a SIM800 Series module over serial port
+ * using RXTX.
  */
 public class FonaSerial implements SerialPortEventListener {
 
@@ -110,8 +110,9 @@ public class FonaSerial implements SerialPortEventListener {
         }
         try {
             String line;
-            while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {                
+            while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {
                 if (!line.isEmpty()) {
+                    System.out.println("DEBUG read: " + line);
                     lineQueue.add(line);
                 }
             }
@@ -140,9 +141,10 @@ public class FonaSerial implements SerialPortEventListener {
      * (these will be added as required).
      * @throws com.angryelectron.fona.FonaException
      */
-    public void write(String data) throws FonaException {        
+    public void write(String data) throws FonaException {
         data += "\r";
         try {
+            System.out.println("DEBUG write: " + data);
             outStream.write(data.getBytes());
         } catch (IOException ex) {
             throw new FonaException(ex.getMessage());
@@ -162,27 +164,9 @@ public class FonaSerial implements SerialPortEventListener {
         StringBuilder builder = new StringBuilder();
         String line;
         try {
-            while ((line = lineQueue.poll(timeout, TimeUnit.MILLISECONDS)) != null) {                
-                builder.append(line);                
+            while ((line = lineQueue.poll(timeout, TimeUnit.MILLISECONDS)) != null) {
+                builder.append(line);
                 if (line.equals("OK") || line.contains("ERROR")) {
-                    return builder.toString();
-                } else {
-                    builder.append(System.lineSeparator());
-                }
-            }
-        } catch (InterruptedException ex) {
-            throw new FonaException("Read was interrupted");
-        }
-        throw new FonaException("Read timed out.");
-    }
-    
-    public String expect(String pattern, Integer timeout) throws FonaException {
-        StringBuilder builder = new StringBuilder();
-        String line;
-        try {
-            while ((line = lineQueue.poll(timeout, TimeUnit.MILLISECONDS)) != null) {                
-                builder.append(line);                
-                if (line.contains(pattern)) {
                     return builder.toString();
                 } else {
                     builder.append(System.lineSeparator());
@@ -195,7 +179,35 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Send an AT command and get the response.
+     * Read an unsolicited or unconventional AT command response. Use to read
+     * responses that do not end with OK or ERROR but instead end with a
+     * specified keyword.
+     *
+     * @param keyword A string contained in the last line of the response.
+     * @param timeout Time in milliseconds to wait for response.
+     * @return Response.
+     * @throws FonaException if command fails or times out.
+     */
+    public String expect(String keyword, Integer timeout) throws FonaException {
+        StringBuilder builder = new StringBuilder();
+        String line;
+        try {
+            while ((line = lineQueue.poll(timeout, TimeUnit.MILLISECONDS)) != null) {
+                builder.append(line);
+                if (line.contains(keyword)) {
+                    return builder.toString();
+                } else {
+                    builder.append(System.lineSeparator());
+                }
+            }
+        } catch (InterruptedException ex) {
+            throw new FonaException("Read was interrupted");
+        }
+        throw new FonaException("Read timed out.");
+    }
+
+    /**
+     * Send an AT command and get the response using the default timeout (5 seconds).
      *
      * @param command AT command as defined in the SIM800 Series AT Command
      * Manual v1.01.
@@ -209,11 +221,12 @@ public class FonaSerial implements SerialPortEventListener {
 
     /**
      * Send an AT command and get the response with user-defined timeout value.
-     *
+     * The timeout value should match the max_time for the AT command, as 
+     * specified in the SIM800 AT Command documentation.
      * @param command AT command
      * @param timeout Time in milliseconds to wait for a response.
-     * @return
-     * @throws com.angryelectron.fona.FonaException
+     * @return Response.
+     * @throws com.angryelectron.fona.FonaException if command fails or times out.
      */
     public String atCommand(String command, Integer timeout) throws FonaException {
         this.write(command);
@@ -221,8 +234,8 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Send an AT command with default value. Checks if response is OK. Intended
-     * as a short-cut for commands that don't return anything meaningful.
+     * Send an AT command with default timeout and fail if the response is anything
+     * other than "OK".
      *
      * @param command At command
      * @throws FonaException if response is not OK.
