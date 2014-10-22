@@ -107,7 +107,7 @@ public class Fona {
          */
         index = 0;
         for (Map.Entry<String, String> entry : email.cc.entrySet()) {            
-            serial.atCommandOK("At+SMTPRCPT=1," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+            serial.atCommandOK("AT+SMTPRCPT=1," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
             index++;
         }
         
@@ -331,7 +331,6 @@ public class Fona {
      */
     public Date gprsTime() throws FonaException {
         String response = serial.atCommand("AT+CIPGSMLOC=2,1");
-        //+CIPGSMLOC: 0,2014/10/20,21:36:10
         if (!response.startsWith("+CIPGSMLOC: 0")) {
             throw new FonaException("Can't get time: " + response);
         }
@@ -344,8 +343,11 @@ public class Fona {
         }
     }
 
-    public void smsSend(String phoneNumber, String message) {
-        throw new UnsupportedOperationException("Not Implemented.");
+    public void smsSend(String phoneNumber, String message) throws FonaException {
+        serial.atCommandOK("AT+CMGF=1");
+        serial.atCommandOK("AT+CSCS=\"GSM\"");
+        serial.atCommandOK("AT+CMGS=\"" + phoneNumber +"\"");
+        serial.atCommandOK(message + "\u001A");
     }
 
     public boolean smsReceived() {
