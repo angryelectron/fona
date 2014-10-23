@@ -13,7 +13,7 @@ import org.junit.Before;
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "/dev/ttyUSB1";
+    private static final String PORT = "/dev/tty.usbserial-FTEA5W5C";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
@@ -21,12 +21,15 @@ public class FonaTest {
     private static final String USER = "wapuser1";
     private static final String PWD = "wap";
     private static final String SMTP = "smtp.rogerswirelessdata.com";
-    
+
     //E-Mail Settings.  Use an address of an account you can access
     //to verify the message.
     private static final String TO_ADDRESS = "abythell@ieee.org";
     private static final String TO_NAME = "Andrew Bythell";
     
+    //SMS Settings.
+    private static final String SMSNUMBER = "";
+
     private static final Fona fona = new Fona();
 
     public FonaTest() {
@@ -104,6 +107,8 @@ public class FonaTest {
     @Test
     public void testGprs() throws FonaException {
         System.out.println("gprsEnable");
+        fona.gprsDisable();
+        assertFalse(fona.gprsIsEnabled());
         fona.gprsEnable(APN, USER, PWD);
         assertTrue(fona.gprsIsEnabled());
         fona.gprsDisable();
@@ -118,13 +123,14 @@ public class FonaTest {
     @Test
     public void testGprsHttpGet() throws FonaException {
         System.out.println("gprsHttpGet");
-        fona.gprsDisable();
-        fona.gprsEnable(APN, USER, PWD);
+        if (!fona.gprsIsEnabled()) {
+            fona.gprsEnable(APN, USER, PWD);
+        }
         assertTrue("GPRS not enabled", fona.gprsIsEnabled());
 
         String response = fona.gprsHttpGet("http://httpbin.org/user-agent");
         if (!response.contains("SIMCOM_MODULE")) {
-                fail("Unexpected response: " + response);
+            fail("Unexpected response: " + response);
         }
     }
 
@@ -150,15 +156,18 @@ public class FonaTest {
     public void testBatteryCharge() throws FonaException {
         System.out.println("batteryChargingState: " + fona.batteryChargingState());
     }
-    
+
     /**
      * Test of time method, of class Fona.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testTime() throws FonaException {
         System.out.print("testTime: ");
-        fona.gprsEnable(APN, USER, PWD);
+        if (!fona.gprsIsEnabled()) {
+            fona.gprsEnable(APN, USER, PWD);
+        }
         Date date = fona.gprsTime();
         System.out.println(date);
         assertNotNull(date);
@@ -167,16 +176,12 @@ public class FonaTest {
 
     /**
      * Test of smsSend method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
-    public void testSmsSend() {
+    public void testSmsSend() throws FonaException {
         System.out.println("smsSend");
-        String phoneNumber = "";
-        String message = "";
-        Fona instance = new Fona();
-        instance.smsSend(phoneNumber, message);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+        fona.smsSend(SMSNUMBER, "Test SMS from FONA");
     }
 
     /**
@@ -268,21 +273,23 @@ public class FonaTest {
     public void testTemperature() throws FonaException {
         System.out.println("temperature: " + fona.temperature() + "C");
     }
-    
+
     @Test
-    public void testEmail() throws FonaException {                
+    public void testEmail() throws FonaException {
+        fail("Disabled during development.");
+
         fona.gprsDisable();
         fona.gprsEnable(APN, USER, PWD);
-        fona.emailSMTP(SMTP, 25);        
-        
+        fona.emailSMTP(SMTP, 25);
+
         FonaEmailMessage email = new FonaEmailMessage();
-        email.fromAddress="fona@test.com";
-        email.fromName="Fona";
+        email.fromAddress = "fona@test.com";
+        email.fromName = "Fona";
         email.to(TO_ADDRESS, TO_NAME);
         email.subject("Fona Java Library Email Test");
         email.body("Hello, from FONA.");
-        
-        fona.emailSend(email);                
+
+        fona.emailSend(email);
         fona.gprsDisable();
     }
 
