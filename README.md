@@ -4,8 +4,26 @@ A Java library for controlling an [Adafruit
 FONA](https://www.adafruit.com/product/1946) or other SIM800-based cellular
 module using a serial connection.
 
-This library is quite new.  Examples and documentation will be added as soon as
-possible.
+Currently under active development.  Testing is recommended - update FonaTest
+class with your cellular provider's info.  If you are interested in contributing
+please get in touch or see the [Github
+Project](http://github.com/angryelectron/fona).
+
+Build
+---
+This is a Netbeans / Ant project.  Build in the Netbeans IDE, or on the command
+line by running 'ant', which will build javadocs and jars in ./dist.
+
+Usage
+---
+Add fona.jar and RXTX (see ./lib) to your project.  Then:
+
+	Fona fona = new Fona();
+	fona.open(SERIAL_PORT, BAUD_RATE);
+	fona.check();
+	fona.close();
+
+See javadocs for a list of other methods.
 
 About
 ---
