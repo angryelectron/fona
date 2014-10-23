@@ -31,6 +31,8 @@ public class FonaSerial implements SerialPortEventListener {
     private InputStream inStream;
     private BufferedReader readBuffer;
     private final LinkedBlockingQueue<String> lineQueue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<String> unsolicitedQueue = new LinkedBlockingQueue<>();
+    private final FonaUnsolicited unsolicited = new FonaUnsolicited();
 
     /**
      * Default timeout value (in milliseconds) to wait for a response to a
@@ -112,8 +114,13 @@ public class FonaSerial implements SerialPortEventListener {
             String line;
             while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {
                 if (!line.isEmpty()) {
-                    System.out.println("DEBUG read: " + line);
-                    lineQueue.add(line);
+                    if (unsolicited.isUnsolicited(line)) {
+                        System.out.println("DEBUG unsolicited read: " + line); 
+                        unsolicitedQueue.add(line);
+                    } else {
+                        System.out.println("DEBUG read: " + line);
+                        lineQueue.add(line);
+                    }
                 }
             }
         } catch (IOException ex) {
@@ -125,12 +132,16 @@ public class FonaSerial implements SerialPortEventListener {
     /**
      * Discard any serial data waiting to be read.
      *
-     * @throws java.io.IOException
+     * @throws com.angryelectron.fona.FonaException
      */
-    public void flush() throws IOException {
+    public void flush() throws FonaException {
+        try {
         int bytes = inStream.available();
         if (bytes > 0) {
             inStream.skip(bytes);
+        }
+        } catch (IOException ex) {
+            throw new FonaException(ex.getMessage());
         }
     }
 
@@ -179,7 +190,7 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Read an unsolicited or unconventional AT command response. Use to read
+     * Read an unconventional AT command response. Use to read
      * responses that do not end with OK or ERROR but instead end with a
      * specified keyword.
      *
@@ -205,9 +216,10 @@ public class FonaSerial implements SerialPortEventListener {
         }
         throw new FonaException("Read timed out.");
     }
-
+    
     /**
-     * Send an AT command and get the response using the default timeout (5 seconds).
+     * Send an AT command and get the response using the default timeout (5
+     * seconds).
      *
      * @param command AT command as defined in the SIM800 Series AT Command
      * Manual v1.01.
@@ -221,12 +233,14 @@ public class FonaSerial implements SerialPortEventListener {
 
     /**
      * Send an AT command and get the response with user-defined timeout value.
-     * The timeout value should match the max_time for the AT command, as 
+     * The timeout value should match the max_time for the AT command, as
      * specified in the SIM800 AT Command documentation.
+     *
      * @param command AT command
      * @param timeout Time in milliseconds to wait for a response.
      * @return Response.
-     * @throws com.angryelectron.fona.FonaException if command fails or times out.
+     * @throws com.angryelectron.fona.FonaException if command fails or times
+     * out.
      */
     public String atCommand(String command, Integer timeout) throws FonaException {
         this.write(command);
@@ -234,8 +248,8 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Send an AT command with default timeout and fail if the response is anything
-     * other than "OK".
+     * Send an AT command with default timeout and fail if the response is
+     * anything other than "OK".
      *
      * @param command At command
      * @throws FonaException if response is not OK.
