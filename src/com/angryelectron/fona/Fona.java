@@ -9,8 +9,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.xml.ws.http.HTTPException;
 
 /**
@@ -366,7 +364,7 @@ public class Fona {
         
         //the CMGS command will return ">", which can't be read using read() or
         //expect(), as it isn't a complete line.
-        serial.write("AT+CMGS=\"" + phoneNumber +"\"");
+        //serial.write("AT+CMGS=\"" + phoneNumber +"\"");
         try {
             serial.atCommand("AT+CMGS=\"" + phoneNumber +"\"", 1000);
         } catch (FonaException ex) {
