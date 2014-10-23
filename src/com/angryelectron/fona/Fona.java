@@ -9,6 +9,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.xml.ws.http.HTTPException;
 
 /**
@@ -227,15 +229,30 @@ public class Fona {
     }
 
     public boolean gprsIsEnabled() throws FonaException {
-        //TODO: also query the GPRS context w/ AT+SAPBR=2,1
+        /**
+         * Check if GPRS is enabled.
+         */
         String response = serial.atCommand("AT+CGATT?");
-        if (response.contains("1")) {
-            return true;
-        } else if (response.contains("0")) {
+        if (response.contains("0")) {
             return false;
-        } else {
+        } else if (!response.contains("1")) {
             throw new FonaException("GPRS status check failed: " + response);
         }
+        
+        /**
+         * GPRS is enabled, but also need to check if there is an active
+         * bearer profile.
+         */
+        response = serial.atCommand("AT+SAPBR=2,1");
+        if (!response.endsWith("OK")) {
+            throw new FonaException("Can't query GPRS context: " + response);
+        }
+        String fields[] = response.split(",");
+        
+        /**
+         * If response is 1, bearer is connected and gprs is enabled.
+         */
+        return fields[1].equals("1");
     }
 
     /**
@@ -346,8 +363,21 @@ public class Fona {
     public void smsSend(String phoneNumber, String message) throws FonaException {
         serial.atCommandOK("AT+CMGF=1");
         serial.atCommandOK("AT+CSCS=\"GSM\"");
-        serial.atCommandOK("AT+CMGS=\"" + phoneNumber +"\"");
-        serial.atCommandOK(message + "\u001A");
+        
+        //the CMGS command will return ">", which can't be read using read() or
+        //expect(), as it isn't a complete line.
+        serial.write("AT+CMGS=\"" + phoneNumber +"\"");
+        try {
+            serial.atCommand("AT+CMGS=\"" + phoneNumber +"\"", 1000);
+        } catch (FonaException ex) {
+            /* timeout is expected - we need to delay waiting for the > prompt */
+        }
+        
+        /* notice up to 60 seconds required for response! */
+        String response = serial.atCommand(message + "\u001A", 60000);
+        if (!response.contains("OK")) {
+            throw new FonaException("SMS Send Failed: " + response);
+        }
     }
 
     public boolean smsReceived() {
