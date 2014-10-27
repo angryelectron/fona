@@ -16,9 +16,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TooManyListenersException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * IO methods for communicating with a SIM800 Series module over serial port
@@ -32,14 +36,82 @@ public class FonaSerial implements SerialPortEventListener {
     private BufferedReader readBuffer;
     private final LinkedBlockingQueue<String> lineQueue = new LinkedBlockingQueue<>();
     private final LinkedBlockingQueue<String> unsolicitedQueue = new LinkedBlockingQueue<>();
-    private final FonaUnsolicited unsolicited = new FonaUnsolicited();
 
     /**
      * Default timeout value (in milliseconds) to wait for a response to a
      * command.
      */
     private final Integer FONA_DEFAULT_TIMEOUT = 5000;
-
+    
+    
+    /**
+     * This is a full list of 'unsolicited' responses according to section 9.1
+     * of the documentation. However - some of these responses *are* solicited:
+     * they are only returned in response to an AT command which we issue.
+     * Any response of this type is handled using a standard read(), so it must
+     * be removed from this list.
+     */
+    private final List<String> unsolicitedResponsePatterns = Arrays.asList(
+            "+CME ERROR:", //see 19.1 for a complete list of codes
+            "+CMS ERROR:", //see 192.3 for a complete list of codes
+            "+CCWA:", //call is waiting
+            "+CLIP:", //calling line identify (??)
+            "+CRING:", //incoming call
+            "+CREG:", //change in network registration
+            "+CCWV:", //accumulated call meter about to reach max
+            "+CMTI:", //new SMS message has arrived
+            "+CMT:", //new SMS message has arrived
+            "+CBM:", //new cell broadcast message
+            "+CDS:", //new SMS status report received
+            "+COLP:", //related to call presentation (?)
+            "+CSSU:", //related to call presentation
+            "+CSSI:", //related to call presentation
+            "+CLCC:", //report list of current calls automatically (?)
+            "*PSNWID:", //refresh network name by network
+            "*PSUTTZ:", //refresh time and timezone by network
+            "+CTZV:", //refresh network timezone by network
+            "DST:", //refresh daylight savings time by network
+            "+CSMINS:", //sim card inserted or removed
+            "+CDRIND:", //voice call, data has been terminated (?)
+            "+CHF:", //current channel
+            "+CENG:", //report network information
+            "MO RING",
+            "MO CONNECTED",
+            "+CPIN:", //sim card ready, not ready, or requires pin
+            "+CSQN:", //signal quality report
+            "+SIMTONE:", //tone started or stopped playing
+            "+STTONE:", //tone started or stopped playing
+            "+CR:", //intermediate result code
+            "+CUSD:", //ussd response
+            "RING", //incoming call
+            "NORMAL POWER DOWN", //sim is powering down
+            //"+CMTE:", //temperature.  Temperature detection not enabled.
+            "UNDER-VOLTAGE", //alarm
+            "OVER-VOLTAGE", //alarm
+            "CHARGE-ONLY MODE", //charging via external charger
+            "RDY", //module is ready
+            "+CFUN:", //phonebok initialization is complete
+            "CONNECT", //tcp/udp connection info
+            "SEND OK", //data sending successful
+            "CLOSED", //tcp/udp connection is closed
+            "RECV FROM", //remote IP address and port
+            "+IPD", //protocol data
+            "+RECEIVE",
+            "REMOTE IP:",
+            "+CDNSGIP", //dns successful or failed
+            "+PDP DEACT", //gprs disconnected by network
+            //"+SAPBR", //bearer
+            //"+HTTPACTION:", //response to HTTP request
+            "+FTPGET:",
+            "+FTPPUT:",
+            "+FTPDELE:",
+            "+FTPSIZE:",
+            "+FTPMKD:",
+            "+FTPRMD:",
+            "+FTPLIST:"
+    );
+    private final Pattern unsolicitedPattern = buildUnsolicitedPattern();
+    
     /**
      * Open serial port connection to FONA.
      *
@@ -114,7 +186,7 @@ public class FonaSerial implements SerialPortEventListener {
             String line;
             while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {
                 if (!line.isEmpty()) {
-                    if (unsolicited.isUnsolicited(line)) {
+                    if (isUnsolicited(line)) {
                         System.out.println("DEBUG unsolicited read: " + line); 
                         unsolicitedQueue.add(line);
                     } else {
@@ -260,5 +332,47 @@ public class FonaSerial implements SerialPortEventListener {
         if (!response.endsWith("OK")) {
             throw new FonaException("AT command failed: " + response);
         }
+    }
+    
+    /**
+     * Assemble all unsolicited codes into a huge regex pattern. This seems
+     * complicated but is necessary for fast comparisons in the serial event
+     * handler. The regex looks like this:
+     *
+     * ^( (first)|(second)|...).*
+     *
+     * @return Pattern of unsolicited responses.
+     */
+    private Pattern buildUnsolicitedPattern() {
+        StringBuilder builder = new StringBuilder("^(");
+        for (String s : unsolicitedResponsePatterns) {
+            builder.append("(");
+            builder.append(s);
+            builder.append(")|");
+        }
+        String regex = builder.toString();
+        regex = regex.substring(0, regex.length() - 1); //trim last '|'
+        regex = regex.replaceAll("\\+", "\\\\+"); //escape literal +
+        regex = regex.replaceAll("\\*", "\\\\*"); //escape literal *
+        regex = regex + ").*"; //match the rest of the line
+        return Pattern.compile(regex);
+    }
+    
+    /**
+     * Check if response contains an unsolicited response.
+     * @param line String to be checked.
+     * @return True if line matches unsolicited pattern.
+     */
+    private boolean isUnsolicited(String line) {
+        Matcher matcher = unsolicitedPattern.matcher(line);
+        return matcher.matches();
+    }
+    
+    /**
+     * Get the queue that contains all the unsolicited responses.
+     * @return LinkedBlockingQueue.
+     */
+    LinkedBlockingQueue<String> getUnsolicitedQueue() {
+        return this.unsolicitedQueue;
     }
 }

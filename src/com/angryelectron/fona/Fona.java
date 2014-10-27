@@ -9,6 +9,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.xml.ws.http.HTTPException;
 
 /**
@@ -21,7 +23,7 @@ import javax.xml.ws.http.HTTPException;
  * Feel free to implement any missing features by contributing to the {@link
  * GitHub http://github.com/angryelectron/fona} project.</p>
  */
-public class Fona {
+public class Fona implements FonaEventHandler {
 
     /**
      * The lower level IO functions are handled by a separate class in case a
@@ -29,6 +31,7 @@ public class Fona {
      * RXTX project.
      */
     private final FonaSerial serial = new FonaSerial();
+    private FonaEventHandler applicationEventHandler = null;
 
     /**
      * Open serial port connection to SIM800 module.
@@ -46,6 +49,27 @@ public class Fona {
     }
 
     /**
+     * Open serial port connection to SIM800 module and set handler for
+     * asynchronous events.
+     *
+     * @param port Port name (/dev/ttyUSB1, COM7, etc.)
+     * @param baud Baud rate. 115200 is recommended.
+     * @param handler FonaEventHandler for handling incoming SMS and Calls.
+     * @throws FonaException
+     */
+    public void open(String port, Integer baud, FonaEventHandler handler) throws FonaException {
+        this.open(port, baud);
+        this.applicationEventHandler = handler;
+
+        /**
+         * Connect the serial port, listener thread, and this class so
+         * unsolicited responses can be handled.
+         */
+        FonaUnsolicitedListener unsolicitedListener = new FonaUnsolicitedListener(serial.getUnsolicitedQueue());
+        unsolicitedListener.listen(this);
+    }
+
+    /**
      * Close serial port connection to SIM800 module.
      *
      * @throws FonaException if communication with serial port fails.
@@ -55,78 +79,89 @@ public class Fona {
     }
 
     /**
-     * Check communication with SIM800. A mostly useless method that is handy
-     * for testing and development.
+     * Configure SMTP server for sending e-mail without user authentication.
      *
-     * @return true if SIM800 response to the most basic AT command.
-     * @throws com.angryelectron.fona.FonaException
+     * @param server SMTP server hostname or IP.
+     * @param port SMTP port, typically 25.
+     * @throws FonaException
      */
-    public boolean check() throws FonaException {
-        return serial.atCommand("AT").equals("OK");
-    }
-    
     public void emailSMTP(String server, Integer port) throws FonaException {
         /* this number must match the bearer profide ID used in enableGPRS() */
         serial.atCommandOK("AT+EMAILCID=1");
-        
+
         /* set the SMTP server response timeout value */
         serial.atCommandOK("AT+EMAILTO=30");
-        
+
         /* set SMTP server */
-        serial.atCommandOK("AT+SMTPSRV=\""+ server + "\"," + port);
-        
+        serial.atCommandOK("AT+SMTPSRV=\"" + server + "\"," + port);
+
         /* don't require SMTP authorization */
         serial.atCommandOK("AT+SMTPAUTH=0");
     }
-    
+
+    /**
+     * Configure SMTP server for sending e-mail with user authenication.
+     *
+     * @param server SMTP server hostname or IP.
+     * @param port SMTP port, typically 25.
+     * @param user SMTP username.
+     * @param password SMTP password.
+     * @throws FonaException
+     */
     public void emailSMTP(String server, Integer port, String user, String password) throws FonaException {
-        emailSMTP(server, port);        
-        
-        /* require SMTP authorization */
-        serial.atCommandOK("AT+SMTPAUTH=1,\""+user+"\",\""+password+"\"");
+        emailSMTP(server, port);
+        serial.atCommandOK("AT+SMTPAUTH=1,\"" + user + "\",\"" + password + "\"");
     }
-    
-    public void emailSend(FonaEmailMessage email) throws FonaException {        
-        
+
+    /**
+     * Send e-mail. Ensure SMTP is configured using 
+     * {@link #emailSMTP(java.lang.String, java.lang.Integer)} or
+     * {@link #emailSMTP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String) 
+     *
+     * @param email FonaEmailMessage object.
+     * @throws FonaException
+     */
+    public void emailSend(FonaEmailMessage email) throws FonaException {
+
         /**
          * Set FROM:
          */
-        serial.atCommandOK("AT+SMTPFROM=\"" + email.fromAddress + "\",\"" + email.fromName +"\"");
-        
+        serial.atCommandOK("AT+SMTPFROM=\"" + email.fromAddress + "\",\"" + email.fromName + "\"");
+
         /**
          * Set TO: recipients
          */
         int index = 0;
-        for (Map.Entry<String, String> entry : email.to.entrySet()) {            
-            serial.atCommandOK("At+SMTPRCPT=0," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+        for (Map.Entry<String, String> entry : email.to.entrySet()) {
+            serial.atCommandOK("At+SMTPRCPT=0," + index + ",\"" + entry.getKey() + "\",\"" + entry.getValue() + "\"");
             index++;
         }
-        
+
         /**
          * Set CC: recipients
          */
         index = 0;
-        for (Map.Entry<String, String> entry : email.cc.entrySet()) {            
-            serial.atCommandOK("AT+SMTPRCPT=1," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+        for (Map.Entry<String, String> entry : email.cc.entrySet()) {
+            serial.atCommandOK("AT+SMTPRCPT=1," + index + ",\"" + entry.getKey() + "\",\"" + entry.getValue() + "\"");
             index++;
         }
-        
+
         /**
          * Set BCC: recipients
          */
         index = 0;
-        for (Map.Entry<String, String> entry : email.bcc.entrySet()) {            
-            serial.atCommandOK("At+SMTPRCPT=2," + index + ",\""+ entry.getKey() +"\",\""+ entry.getValue() +"\"");
+        for (Map.Entry<String, String> entry : email.bcc.entrySet()) {
+            serial.atCommandOK("At+SMTPRCPT=2," + index + ",\"" + entry.getKey() + "\",\"" + entry.getValue() + "\"");
         }
-        
+
         /**
          * Set subject and body.
          */
-        serial.atCommandOK("AT+SMTPSUB=\""+ email.subject + "\"");
-        serial.write("AT+SMTPBODY="+ email.body.length());
+        serial.atCommandOK("AT+SMTPSUB=\"" + email.subject + "\"");
+        serial.write("AT+SMTPBODY=" + email.body.length());
         serial.expect("DOWNLOAD", 5000);
         serial.atCommandOK(email.body);
-        
+
         /**
          * Send it.
          */
@@ -217,6 +252,10 @@ public class Fona {
         }
     }
 
+    /**
+     * Disable GPRS.
+     * @throws FonaException 
+     */
     public void gprsDisable() throws FonaException {
         try {
             serial.atCommand("AT+SAPBR=0,1");
@@ -226,6 +265,11 @@ public class Fona {
         }
     }
 
+    /**
+     * Check if GPRS is enabled.
+     * @return true if GPRS is enabled and authenticated.
+     * @throws FonaException 
+     */
     public boolean gprsIsEnabled() throws FonaException {
         /**
          * Check if GPRS is enabled.
@@ -236,17 +280,17 @@ public class Fona {
         } else if (!response.contains("1")) {
             throw new FonaException("GPRS status check failed: " + response);
         }
-        
+
         /**
-         * GPRS is enabled, but also need to check if there is an active
-         * bearer profile.
+         * GPRS is enabled, but also need to check if there is an active bearer
+         * profile.
          */
         response = serial.atCommand("AT+SAPBR=2,1");
         if (!response.endsWith("OK")) {
             throw new FonaException("Can't query GPRS context: " + response);
         }
         String fields[] = response.split(",");
-        
+
         /**
          * If response is 1, bearer is connected and gprs is enabled.
          */
@@ -349,7 +393,7 @@ public class Fona {
         if (!response.startsWith("+CIPGSMLOC: 0")) {
             throw new FonaException("Can't get time: " + response);
         }
-        DateFormat df = new SimpleDateFormat("yyyy/MM/dd kk:mm:ss");
+        DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         String field[] = response.split(",");
         try {
             return df.parse(field[1] + " " + field[2]);
@@ -358,19 +402,29 @@ public class Fona {
         }
     }
 
+    /**
+     * Send SMS message.
+     *
+     * @param phoneNumber Recipient's phone number.
+     * @param message Message body. Max length 160 characters.
+     * @throws FonaException If message cannot be sent.
+     */
     public void smsSend(String phoneNumber, String message) throws FonaException {
+        if (message.length() > 160) {
+            throw new FonaException("SMS messages cannot exceed 160 characters.");
+        }
         serial.atCommandOK("AT+CMGF=1");
         serial.atCommandOK("AT+CSCS=\"GSM\"");
-        
+
         //the CMGS command will return ">", which can't be read using read() or
         //expect(), as it isn't a complete line.
         //serial.write("AT+CMGS=\"" + phoneNumber +"\"");
         try {
-            serial.atCommand("AT+CMGS=\"" + phoneNumber +"\"", 1000);
+            serial.atCommand("AT+CMGS=\"" + phoneNumber + "\"", 1000);
         } catch (FonaException ex) {
             /* timeout is expected - we need to delay waiting for the > prompt */
         }
-        
+
         /* notice up to 60 seconds required for response! */
         String response = serial.atCommand(message + "\u001A", 60000);
         if (!response.contains("OK")) {
@@ -378,27 +432,53 @@ public class Fona {
         }
     }
 
-    public boolean smsReceived() {
-        throw new UnsupportedOperationException("Not Implemented.");
+    /**
+     * Internal - Called when an SMS message has been received. To be notified
+     * of incoming SMS messages, implement
+     * {@link com.angryelectron.fona.FonaEventHandler} in your application and
+     * use {@link com.angryelectron.fona.FonaSerial#open(java.lang.String,
+     * java.lang.Integer, com.angryelectron.fona.FonaEventHandler) }
+     *
+     * @param sms
+     */
+    @Override
+    public void onSmsMessageReceived(FonaSmsMessage sms) {
+        /* get message id from unsolicited response */
+        String fields[] = sms.response.split(",");
+        String messageId = fields[1];
+
+        /* read and parse response */
+        try {
+            String response = serial.atCommand("AT+CMGR=" + messageId);
+            Pattern pattern = Pattern.compile("\\+CMGR: \"[A-Z ]+\",\"([\\+0-9]+)\",\"\",\"([0-9/,:+]+)\" (.+)");
+            Matcher matcher = pattern.matcher(response);
+            if (!matcher.find()) {
+                applicationEventHandler.onError("Invalid SMS message format: " + sms.response);
+                return;
+            } else {
+                sms.sender = matcher.group(1);
+                sms.setTimestamp(matcher.group(2));
+                sms.message = matcher.group(3);
+            }
+
+            /* delete message */
+            serial.atCommandOK("AT+CMGD=" + messageId);
+        } catch (FonaException | ParseException ex) {
+            applicationEventHandler.onError(ex.getMessage());
+            return;
+        }
+        this.applicationEventHandler.onSmsMessageReceived(sms);
     }
-
-    public String smsRead() {
-        throw new UnsupportedOperationException("Not Implemented.");
-    }
-
-    public enum SmsSelect {
-
-        READ, UNREAD, SEND, UNSENT, INBOX, ALL
-    };
 
     /**
-     * Delete SMS messages. May take up to 25s to delete large numbers of
-     * messages (>50).
+     * Internal. Called when an error has occurred handling an unsolicited serial
+     * response.
      *
-     * @param selection
+     * @param message Error message.
      */
-    public void smsDelete(SmsSelect selection) {
-        throw new UnsupportedOperationException("Not Implemented.");
+    @Override
+    public void onError(String message) {
+        this.applicationEventHandler.onError(message);
     }
 
     /**
@@ -433,6 +513,10 @@ public class Fona {
         return Integer.parseInt(value.trim());
     }
 
+    /**
+     * Unlock SIM card.
+     * @param password SIM card password.
+     */
     public void simUnlock(String password) {
         throw new UnsupportedOperationException("Not Implemented.");
     }
@@ -455,14 +539,12 @@ public class Fona {
         switch (dbm) {
             case 0:
                 return -115; /* may be less */
-
             case 1:
                 return -111;
             case 31:
                 return -52;
             case 99:
                 return -999; /* not known or not detectable */
-
             default:
                 return (dbm * 2) - 114;
         }
@@ -479,10 +561,6 @@ public class Fona {
         if (response.contains("ERROR")) {
             throw new FonaException("Reading service provider failed: " + response);
         }
-        /**
-         * Extract provider name from response. Response format is
-         * +CSPN:"<spn>",<display mode>.
-         */
         return response.substring(response.indexOf(":") + 3, response.indexOf(",") - 1);
     }
 

@@ -26,7 +26,7 @@ public class FonaTest {
     //to verify the message.
     private static final String TO_ADDRESS = "abythell@ieee.org";
     private static final String TO_NAME = "Andrew Bythell";
-    
+
     //SMS Settings.
     private static final String SMSNUMBER = "";
 
@@ -48,19 +48,6 @@ public class FonaTest {
     @After
     public void tearDown() throws FonaException {
         fona.close();
-    }
-
-    /**
-     * Test of open method, of class Fona.
-     *
-     * @throws java.lang.Exception
-     */
-    @Test
-    public void testCheck() throws Exception {
-        System.out.println("check");
-        if (!fona.check()) {
-            fail("Can't communicate with module.");
-        }
     }
 
     /**
@@ -176,53 +163,13 @@ public class FonaTest {
 
     /**
      * Test of smsSend method, of class Fona.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testSmsSend() throws FonaException {
         System.out.println("smsSend");
         fona.smsSend(SMSNUMBER, "Test SMS from FONA");
-    }
-
-    /**
-     * Test of smsReceived method, of class Fona.
-     */
-    @Test
-    public void testSmsReceived() {
-        System.out.println("smsReceived");
-        Fona instance = new Fona();
-        boolean expResult = false;
-        boolean result = instance.smsReceived();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
-
-    /**
-     * Test of smsRead method, of class Fona.
-     */
-    @Test
-    public void testSmsRead() {
-        System.out.println("smsRead");
-        Fona instance = new Fona();
-        String expResult = "";
-        String result = instance.smsRead();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
-
-    /**
-     * Test of smsDelete method, of class Fona.
-     */
-    @Test
-    public void testSmsDelete() {
-        System.out.println("smsDelete");
-        Fona.SmsSelect selection = null;
-        Fona instance = new Fona();
-        instance.smsDelete(selection);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
     }
 
     /**
