@@ -5,7 +5,7 @@
 package com.angryelectron.fona;
 
 /**
- * Exception thrown by Fona classes.
+ * Exception thrown by Fona methods.
  */
 public class FonaException extends Exception {
 
