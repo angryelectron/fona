@@ -7,21 +7,24 @@ package com.angryelectron.fona;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.ws.http.HTTPException;
 
 /**
- * Control Fona / SIM800 via Serial Port. Based on null {@link Sim800 AT Command Manual
- * http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf}.
+ * Control Fona / SIM800 via Serial Port.
+ * <a href="http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf">
+ * Sim800 AT Command Manual</a>
  * <p>
  * All Network-based operations use a Bearer Profile Identifier of 1.
  * <p>
  * This class only implements a subset of the features supported by the SIM800.
- * Feel free to implement any missing features by contributing to the {@link
- * GitHub http://github.com/angryelectron/fona} project.</p>
+ * Feel free to implement any missing features by contributing to the 
+ * <a href="http://github.com/angryelectron/fona">GitHub Project</a>.
  */
 public class Fona implements FonaEventHandler {
 
@@ -100,9 +103,9 @@ public class Fona implements FonaEventHandler {
     }
 
     /**
-     * Configure SMTP server for sending e-mail with user authenication.
+     * Configure SMTP server for sending e-mail with user authentication.
      *
-     * @param server SMTP server hostname or IP.
+     * @param server SMTP server host name or IP.
      * @param port SMTP port, typically 25.
      * @param user SMTP username.
      * @param password SMTP password.
@@ -114,9 +117,24 @@ public class Fona implements FonaEventHandler {
     }
 
     /**
-     * Send e-mail. Ensure SMTP is configured using 
+     * Configure POP server for receiving e-mail.
+     *
+     * @param server POP server host name or IP.
+     * @param port POP port. Typically 110.
+     * @param user POP username.
+     * @param password POP password.
+     * @throws FonaException
+     */
+    public void emailPOP(String server, Integer port, String user, String password) throws FonaException {
+        serial.atCommandOK("AT+EMAILCID=1");
+        serial.atCommandOK("AT+EMAILTO=30");
+        serial.atCommandOK("AT+POP3SRV=\"" + server + "\",\"" + user + "\",\"" + password + "\"," + port);
+    }
+
+    /**
+     * Send e-mail. Ensure SMTP is configured using
      * {@link #emailSMTP(java.lang.String, java.lang.Integer)} or
-     * {@link #emailSMTP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String) 
+     * {@link #emailSMTP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
      *
      * @param email FonaEmailMessage object.
      * @throws FonaException
@@ -170,6 +188,23 @@ public class Fona implements FonaEventHandler {
         if (!response.equals("+SMTPSEND: 1")) {
             throw new FonaException("Email send failed: " + response);
         }
+    }
+
+    /**
+     * Download email messages from POP3 server. Configure the POP3 server using
+     * {@link #emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}.
+     *
+     * @return A list of {@link com.angryelectron.fona.FonaEmailMessage}.
+     * @throws FonaException
+     */
+    public List<FonaEmailMessage> emailReceive() throws FonaException {
+        List<FonaEmailMessage> messages = new ArrayList<>();
+        FonaPOP3 pop3 = new FonaPOP3(serial);
+        pop3.login();
+        for (int i = 1; i <= pop3.getNewMessageCount(); i++) {
+            messages.add(pop3.readMessage(i));
+        }
+        return messages;
     }
 
     /**
@@ -254,7 +289,8 @@ public class Fona implements FonaEventHandler {
 
     /**
      * Disable GPRS.
-     * @throws FonaException 
+     *
+     * @throws FonaException
      */
     public void gprsDisable() throws FonaException {
         try {
@@ -267,8 +303,9 @@ public class Fona implements FonaEventHandler {
 
     /**
      * Check if GPRS is enabled.
+     *
      * @return true if GPRS is enabled and authenticated.
-     * @throws FonaException 
+     * @throws FonaException
      */
     public boolean gprsIsEnabled() throws FonaException {
         /**
@@ -436,10 +473,9 @@ public class Fona implements FonaEventHandler {
      * Internal - Called when an SMS message has been received. To be notified
      * of incoming SMS messages, implement
      * {@link com.angryelectron.fona.FonaEventHandler} in your application and
-     * use {@link com.angryelectron.fona.FonaSerial#open(java.lang.String,
-     * java.lang.Integer, com.angryelectron.fona.FonaEventHandler) }
+     * use {@link com.angryelectron.fona.FonaSerial#open(java.lang.String, java.lang.Integer)}.
      *
-     * @param sms
+     * @param sms SMS message.
      */
     @Override
     public void onSmsMessageReceived(FonaSmsMessage sms) {
@@ -471,8 +507,8 @@ public class Fona implements FonaEventHandler {
     }
 
     /**
-     * Internal. Called when an error has occurred handling an unsolicited serial
-     * response.
+     * Internal. Called when an error has occurred handling an unsolicited
+     * serial response.
      *
      * @param message Error message.
      */
@@ -515,6 +551,7 @@ public class Fona implements FonaEventHandler {
 
     /**
      * Unlock SIM card.
+     *
      * @param password SIM card password.
      */
     public void simUnlock(String password) {
@@ -539,12 +576,14 @@ public class Fona implements FonaEventHandler {
         switch (dbm) {
             case 0:
                 return -115; /* may be less */
+
             case 1:
                 return -111;
             case 31:
                 return -52;
             case 99:
                 return -999; /* not known or not detectable */
+
             default:
                 return (dbm * 2) - 114;
         }

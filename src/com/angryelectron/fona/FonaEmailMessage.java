@@ -18,6 +18,7 @@ public class FonaEmailMessage {
     final HashMap<String, String> bcc = new HashMap<>();    
     String subject;
     String body;
+    Integer messageId;
     
     /**
      * Set the name and e-mail address of the sender.
@@ -74,5 +75,8 @@ public class FonaEmailMessage {
     public void body(String body) {
         this.body = body;        
     }
-                
+    
+    public Integer getMessageId() {
+        return this.messageId;
+    }
 }

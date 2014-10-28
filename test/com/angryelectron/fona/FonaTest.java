@@ -5,6 +5,7 @@
 package com.angryelectron.fona;
 
 import java.util.Date;
+import java.util.List;
 import org.junit.After;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -20,12 +21,16 @@ public class FonaTest {
     private static final String APN = "internet.com";
     private static final String USER = "wapuser1";
     private static final String PWD = "wap";
-    private static final String SMTP = "smtp.rogerswirelessdata.com";
 
     //E-Mail Settings.  Use an address of an account you can access
     //to verify the message.
     private static final String TO_ADDRESS = "abythell@ieee.org";
     private static final String TO_NAME = "Andrew Bythell";
+    private static final String POPSERVER = "";
+    private static final Integer POPPORT = 110;
+    private static final String POPUSER = "";
+    private static final String POPPWD = "";
+    private static final String SMTP = "smtp.rogerswirelessdata.com";
 
     //SMS Settings.
     private static final String SMSNUMBER = "";
@@ -222,11 +227,12 @@ public class FonaTest {
     }
 
     @Test
-    public void testEmail() throws FonaException {
+    public void testEmailSend() throws FonaException {
         fail("Disabled during development.");
 
-        fona.gprsDisable();
-        fona.gprsEnable(APN, USER, PWD);
+        if (!fona.gprsIsEnabled()) {
+            fona.gprsEnable(APN, USER, PWD);
+        }
         fona.emailSMTP(SMTP, 25);
 
         FonaEmailMessage email = new FonaEmailMessage();
@@ -237,7 +243,15 @@ public class FonaTest {
         email.body("Hello, from FONA.");
 
         fona.emailSend(email);
-        fona.gprsDisable();
+    }
+    
+    @Test
+    public void testEmailReceive() throws FonaException{
+        if (!fona.gprsIsEnabled()) {
+            fona.gprsEnable(APN, USER, PWD);
+        }
+        fona.emailPOP(POPSERVER, POPPORT, POPUSER, POPPWD);
+        List<FonaEmailMessage> messages = fona.emailReceive();
     }
 
 }
