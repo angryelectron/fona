@@ -8,7 +8,13 @@ package com.angryelectron.fona;
 import java.util.HashMap;
 
 /**
- * Compose e-mail messages.  Send the message via Fona.emailSend().
+ * Fona E-mail message object.  
+ * <ul>
+ *   <li> Send messages: {@link com.angryelectron.fona.Fona#emailSend(com.angryelectron.fona.FonaEmailMessage)}</li>
+ *   <li> Receive messages: {@link com.angryelectron.fona.Fona#emailReceive()}</li>
+ *   <li> Configure SMTP: {@link com.angryelectron.fona.Fona#emailSMTP(java.lang.String, java.lang.Integer)}</li>
+ *   <li> Configure POP: {@link com.angryelectron.fona.Fona#emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}</li>
+ * </ul>
  */
 public class FonaEmailMessage {
     String fromAddress;
@@ -75,8 +81,5 @@ public class FonaEmailMessage {
     public void body(String body) {
         this.body = body;        
     }
-    
-    public Integer getMessageId() {
-        return this.messageId;
-    }
+            
 }
