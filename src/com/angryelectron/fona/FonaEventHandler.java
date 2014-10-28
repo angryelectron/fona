@@ -6,11 +6,21 @@
 package com.angryelectron.fona;
 
 /**
- * Implement this interface to catch unsolicited events like incoming calls,
- * SMS messages, and e-mail.  This interface is also used internally to parse
- * unsolicited responses into their corresponding objects.
+ * Handle events like incoming calls and SMS messages.
+ * Implement this interface in your application, then attach it using 
+ * {@link com.angryelectron.fona.Fona#open(java.lang.String, java.lang.Integer, com.angryelectron.fona.FonaEventHandler)}.
  */
 public interface FonaEventHandler {
-    public void onSmsMessageReceived(FonaSmsMessage sms);
+    
+    /**
+     * Called when a new SMS message is received.
+     * @param message SMS message details.
+     */
+    public void onSmsMessageReceived(FonaSmsMessage message);
+    
+    /**
+     * Called when an error is encountered while handling unsolicited events.
+     * @param message Error message.
+     */
     public void onError(String message);
 }
