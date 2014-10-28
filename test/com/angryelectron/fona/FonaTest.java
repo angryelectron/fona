@@ -14,23 +14,24 @@ import org.junit.Before;
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "/dev/tty.usbserial-FTEA5W5C";
+    private static final String PORT = "/dev/ttyUSB1";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
     private static final String APN = "internet.com";
     private static final String USER = "wapuser1";
     private static final String PWD = "wap";
+    private static final String SMTP = "smtp.rogerswirelessdata.com";
 
     //E-Mail Settings.  Use an address of an account you can access
     //to verify the message.
-    private static final String TO_ADDRESS = "abythell@ieee.org";
-    private static final String TO_NAME = "Andrew Bythell";
+    private static final String TO_ADDRESS = "";
+    private static final String TO_NAME = "";
     private static final String POPSERVER = "";
     private static final Integer POPPORT = 110;
     private static final String POPUSER = "";
     private static final String POPPWD = "";
-    private static final String SMTP = "smtp.rogerswirelessdata.com";
+    
 
     //SMS Settings.
     private static final String SMSNUMBER = "";
@@ -174,6 +175,7 @@ public class FonaTest {
     @Test
     public void testSmsSend() throws FonaException {
         System.out.println("smsSend");
+        assertFalse("No valid phone number specified.", SMSNUMBER.isEmpty());
         fona.smsSend(SMSNUMBER, "Test SMS from FONA");
     }
 
@@ -188,22 +190,10 @@ public class FonaTest {
         Integer value = fona.simReadADC();
         assertTrue(0 <= value && value <= 2800);
     }
-
-    /**
-     * Test of simUnlock method, of class Fona.
-     */
-    @Test
-    public void testSimUnlock() {
-        System.out.println("simUnlock");
-        String password = "";
-        Fona instance = new Fona();
-        instance.simUnlock(password);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
-    }
-
+    
     /**
      * Test of simRSSI method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testSimRSSI() throws FonaException {
@@ -212,6 +202,7 @@ public class FonaTest {
 
     /**
      * Test of simProvider method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testSimProvider() throws FonaException {
@@ -220,6 +211,7 @@ public class FonaTest {
 
     /**
      * Test of temperature method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testTemperature() throws FonaException {
@@ -228,7 +220,8 @@ public class FonaTest {
 
     @Test
     public void testEmailSend() throws FonaException {
-        fail("Disabled during development.");
+        System.out.println("emailSend");
+        assertFalse("E-mail recipient not specified.", TO_ADDRESS.isEmpty());
 
         if (!fona.gprsIsEnabled()) {
             fona.gprsEnable(APN, USER, PWD);
@@ -253,5 +246,22 @@ public class FonaTest {
         fona.emailPOP(POPSERVER, POPPORT, POPUSER, POPPWD);
         List<FonaEmailMessage> messages = fona.emailReceive();
     }
-
+    
+    @Test
+    public void testSmsList() throws FonaException {
+        System.out.println("smsList");
+        List<FonaSmsMessage> messages = fona.smsRead(FonaSmsMessage.Folder.ALL, false);
+    }    
+    
+    @Test
+    public void testSmsRead() throws FonaException {
+        System.out.println("smsRead");
+        FonaSmsMessage message = fona.smsRead(1, false);        
+        assertNotNull("No folder.", message.folder);
+        assertNotNull("No id.", message.id);
+        assertNotNull("No message.", message.message);
+        assertNotNull("No sender.", message.sender);
+        assertNotNull("No timestamp.", message.timestamp);
+    }
+    
 }
