@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  * IO methods for communicating with a SIM800 Series module over serial port
  * using RXTX.
  */
-public class FonaSerial implements SerialPortEventListener {
+class FonaSerial implements SerialPortEventListener {
 
     private SerialPort serialPort;
     private OutputStream outStream;
@@ -42,14 +42,13 @@ public class FonaSerial implements SerialPortEventListener {
      * command.
      */
     private final Integer FONA_DEFAULT_TIMEOUT = 5000;
-    
-    
+
     /**
      * This is a full list of 'unsolicited' responses according to section 9.1
      * of the documentation. However - some of these responses *are* solicited:
-     * they are only returned in response to an AT command which we issue.
-     * Any response of this type is handled using a standard read(), so it must
-     * be removed from this list.
+     * they are only returned in response to an AT command which we issue. Any
+     * response of this type is handled using a standard read(), so it must be
+     * removed from this list.
      */
     private final List<String> unsolicitedResponsePatterns = Arrays.asList(
             "+CME ERROR:", //see 19.1 for a complete list of codes
@@ -111,7 +110,7 @@ public class FonaSerial implements SerialPortEventListener {
             "+FTPLIST:"
     );
     private final Pattern unsolicitedPattern = buildUnsolicitedPattern();
-    
+
     /**
      * Open serial port connection to FONA.
      *
@@ -120,7 +119,7 @@ public class FonaSerial implements SerialPortEventListener {
      * detection so other rates are supported automagically.
      * @throws com.angryelectron.fona.FonaException
      */
-    public void open(String port, Integer baud) throws FonaException {
+    void open(String port, Integer baud) throws FonaException {
         try {
             CommPortIdentifier portId = CommPortIdentifier.getPortIdentifier(port);
             serialPort = (SerialPort) portId.open("FONA", FONA_DEFAULT_TIMEOUT);
@@ -137,7 +136,7 @@ public class FonaSerial implements SerialPortEventListener {
             flush();
 
         } catch (NoSuchPortException ex) {
-            throw new FonaException("Invalid port.");
+            throw new FonaException("Can't open " + port);
         } catch (IOException | TooManyListenersException | UnsupportedCommOperationException | PortInUseException ex) {
             throw new FonaException(ex.getMessage());
         }
@@ -148,7 +147,7 @@ public class FonaSerial implements SerialPortEventListener {
      *
      * @throws com.angryelectron.fona.FonaException
      */
-    public void close() throws FonaException {
+    void close() throws FonaException {
         try {
             serialPort.notifyOnDataAvailable(false);
             serialPort.removeEventListener();
@@ -187,7 +186,7 @@ public class FonaSerial implements SerialPortEventListener {
             while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {
                 if (!line.isEmpty()) {
                     if (isUnsolicited(line)) {
-                        System.out.println("DEBUG unsolicited read: " + line); 
+                        System.out.println("DEBUG unsolicited read: " + line);
                         unsolicitedQueue.add(line);
                     } else {
                         System.out.println("DEBUG read: " + line);
@@ -206,25 +205,26 @@ public class FonaSerial implements SerialPortEventListener {
      *
      * @throws com.angryelectron.fona.FonaException
      */
-    public void flush() throws FonaException {
+    void flush() throws FonaException {
         try {
-        int bytes = inStream.available();
-        if (bytes > 0) {
-            inStream.skip(bytes);
-        }
+            int bytes = inStream.available();
+            if (bytes > 0) {
+                inStream.skip(bytes);
+            }
         } catch (IOException ex) {
             throw new FonaException(ex.getMessage());
         }
+        this.lineQueue.clear();
     }
 
     /**
-     * Send an AT command.
+     * Write to serial port.
      *
-     * @param data The AT command to send, without any linefeeds or newlines
-     * (these will be added as required).
+     * @param data Command to send, without any linefeeds or newlines (these
+     * will be added as required).
      * @throws com.angryelectron.fona.FonaException
      */
-    public void write(String data) throws FonaException {
+    void write(String data) throws FonaException {
         data += "\r";
         try {
             System.out.println("DEBUG write: " + data);
@@ -236,14 +236,14 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Read an AT response. Use to gather responses to AT commands that finish
+     * Read from serial port. Use to gather responses to AT commands that finish
      * with ERROR or OK.
      *
      * @param timeout Time in milliseconds to wait for a response.
      * @return AT response.
      * @throws com.angryelectron.fona.FonaException
      */
-    public String read(Integer timeout) throws FonaException {
+    String read(Integer timeout) throws FonaException {
         StringBuilder builder = new StringBuilder();
         String line;
         try {
@@ -262,16 +262,15 @@ public class FonaSerial implements SerialPortEventListener {
     }
 
     /**
-     * Read an unconventional AT command response. Use to read
-     * responses that do not end with OK or ERROR but instead end with a
-     * specified keyword.
+     * Read from serial port. Use to read responses that do not end with OK or
+     * ERROR but instead end with a specified keyword.
      *
      * @param keyword A string contained in the last line of the response.
      * @param timeout Time in milliseconds to wait for response.
      * @return Response.
      * @throws FonaException if command fails or times out.
      */
-    public String expect(String keyword, Integer timeout) throws FonaException {
+    String expect(String keyword, Integer timeout) throws FonaException {
         StringBuilder builder = new StringBuilder();
         String line;
         try {
@@ -288,7 +287,7 @@ public class FonaSerial implements SerialPortEventListener {
         }
         throw new FonaException("Read timed out.");
     }
-    
+
     /**
      * Send an AT command and get the response using the default timeout (5
      * seconds).
@@ -298,7 +297,7 @@ public class FonaSerial implements SerialPortEventListener {
      * @return Response.
      * @throws com.angryelectron.fona.FonaException
      */
-    public String atCommand(String command) throws FonaException {
+    String atCommand(String command) throws FonaException {
         this.write(command);
         return this.read(FONA_DEFAULT_TIMEOUT);
     }
@@ -314,7 +313,7 @@ public class FonaSerial implements SerialPortEventListener {
      * @throws com.angryelectron.fona.FonaException if command fails or times
      * out.
      */
-    public String atCommand(String command, Integer timeout) throws FonaException {
+    String atCommand(String command, Integer timeout) throws FonaException {
         this.write(command);
         return this.read(timeout);
     }
@@ -326,14 +325,14 @@ public class FonaSerial implements SerialPortEventListener {
      * @param command At command
      * @throws FonaException if response is not OK.
      */
-    public void atCommandOK(String command) throws FonaException {
+    void atCommandOK(String command) throws FonaException {
         this.write(command);
         String response = this.read(FONA_DEFAULT_TIMEOUT);
         if (!response.endsWith("OK")) {
             throw new FonaException("AT command failed: " + response);
         }
     }
-    
+
     /**
      * Assemble all unsolicited codes into a huge regex pattern. This seems
      * complicated but is necessary for fast comparisons in the serial event
@@ -357,9 +356,10 @@ public class FonaSerial implements SerialPortEventListener {
         regex = regex + ").*"; //match the rest of the line
         return Pattern.compile(regex);
     }
-    
+
     /**
      * Check if response contains an unsolicited response.
+     *
      * @param line String to be checked.
      * @return True if line matches unsolicited pattern.
      */
@@ -367,9 +367,10 @@ public class FonaSerial implements SerialPortEventListener {
         Matcher matcher = unsolicitedPattern.matcher(line);
         return matcher.matches();
     }
-    
+
     /**
      * Get the queue that contains all the unsolicited responses.
+     *
      * @return LinkedBlockingQueue.
      */
     LinkedBlockingQueue<String> getUnsolicitedQueue() {
