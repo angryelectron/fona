@@ -11,20 +11,22 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.xml.ws.http.HTTPException;
 
 /**
- * Control Fona / SIM800 via Serial Port.
- * <a href="http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf">
- * Sim800 AT Command Manual</a>
+ * Primary class for controlling a Fona / SIM800 cellular module via serial
+ * port.
  * <p>
- * All Network-based operations use a Bearer Profile Identifier of 1.
+ * Based on the <a
+ * href="http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf">
+ * Sim800 AT Command Manual</a>, this class only implements a subset of the
+ * features supported by the SIM800. Feel free to implement any missing features
+ * by contributing to the
+ * <a href="http://github.com/angryelectron/fona">GitHub Project</a>.</p>
  * <p>
- * This class only implements a subset of the features supported by the SIM800.
- * Feel free to implement any missing features by contributing to the 
- * <a href="http://github.com/angryelectron/fona">GitHub Project</a>.
+ * Note: All network-based operations use a hardcoded Bearer Profile Identifier
+ * of 1.</p>
+ *
  */
 public class Fona implements FonaEventHandler {
 
@@ -35,6 +37,7 @@ public class Fona implements FonaEventHandler {
      */
     private final FonaSerial serial = new FonaSerial();
     private FonaEventHandler applicationEventHandler = null;
+    private FonaUnsolicitedListener unsolicitedListener = null;
 
     /**
      * Open serial port connection to SIM800 module.
@@ -45,10 +48,9 @@ public class Fona implements FonaEventHandler {
      */
     public void open(String port, Integer baud) throws FonaException {
         serial.open(port, baud);
-        if (!serial.atCommand("AT&F").contains("OK")) {
-            throw new FonaException("Factory reset failed.  Can't communicate with device.");
-        }
-        serial.atCommand("ATE0"); //turn off local echo        
+        serial.atCommand("AT");
+        serial.atCommand("AT&F");
+        serial.atCommand("ATE0"); //turn off local echo         
     }
 
     /**
@@ -68,8 +70,8 @@ public class Fona implements FonaEventHandler {
          * Connect the serial port, listener thread, and this class so
          * unsolicited responses can be handled.
          */
-        FonaUnsolicitedListener unsolicitedListener = new FonaUnsolicitedListener(serial.getUnsolicitedQueue());
-        unsolicitedListener.listen(this);
+        unsolicitedListener = new FonaUnsolicitedListener(serial.getUnsolicitedQueue());
+        unsolicitedListener.start(this);
     }
 
     /**
@@ -79,6 +81,9 @@ public class Fona implements FonaEventHandler {
      */
     public void close() throws FonaException {
         serial.close();
+        if (unsolicitedListener != null) {
+            unsolicitedListener.stop();
+        }
     }
 
     /**
@@ -201,10 +206,9 @@ public class Fona implements FonaEventHandler {
         List<FonaEmailMessage> messages = new ArrayList<>();
         FonaPOP3 pop3 = new FonaPOP3(serial);
         pop3.login();
-        for (int i = 1; i <= pop3.getNewMessageCount(); i++) {
-            messages.add(pop3.readMessage(i));
-        }
-        return messages;
+
+        //TODO: finish implementing and testing this method.
+        throw new UnsupportedOperationException("Not implemented.");
     }
 
     /**
@@ -269,9 +273,9 @@ public class Fona implements FonaEventHandler {
      * methods. Most mobile carriers publish their APN credentials. On boot,
      * GPRS is 'enabled' but not 'authenticated'.
      *
-     * @param apn
-     * @param user
-     * @param password
+     * @param apn Cell provider APN address.
+     * @param user APN user.
+     * @param password APN password.
      * @throws FonaException
      */
     public void gprsEnable(String apn, String user, String password) throws FonaException {
@@ -447,63 +451,54 @@ public class Fona implements FonaEventHandler {
      * @throws FonaException If message cannot be sent.
      */
     public void smsSend(String phoneNumber, String message) throws FonaException {
-        if (message.length() > 160) {
-            throw new FonaException("SMS messages cannot exceed 160 characters.");
-        }
-        serial.atCommandOK("AT+CMGF=1");
-        serial.atCommandOK("AT+CSCS=\"GSM\"");
+        FonaSms sms = new FonaSms(serial);
+        sms.send(phoneNumber, message);
+    }
 
-        //the CMGS command will return ">", which can't be read using read() or
-        //expect(), as it isn't a complete line.
-        //serial.write("AT+CMGS=\"" + phoneNumber +"\"");
-        try {
-            serial.atCommand("AT+CMGS=\"" + phoneNumber + "\"", 1000);
-        } catch (FonaException ex) {
-            /* timeout is expected - we need to delay waiting for the > prompt */
-        }
+    /**
+     * Read SMS message. Also see
+     * {@link #onSmsMessageReceived(com.angryelectron.fona.FonaSmsMessage)}.
+     *
+     * @param messageId ID of message.
+     * @param markAsRead If true, UNREAD messages will be marked as READ.
+     * @return SMS message.
+     * @throws FonaException
+     */
+    public FonaSmsMessage smsRead(int messageId, boolean markAsRead) throws FonaException {
+        FonaSms sms = new FonaSms(serial);
+        return sms.read(messageId, markAsRead);
+    }
 
-        /* notice up to 60 seconds required for response! */
-        String response = serial.atCommand(message + "\u001A", 60000);
-        if (!response.contains("OK")) {
-            throw new FonaException("SMS Send Failed: " + response);
-        }
+    /**
+     * Read all SMS messages.
+     *
+     * @param folder Folder containing messages.
+     * @param markAsRead
+     * @return A list of messages. List is empty if no messages were found.
+     * @throws FonaException
+     */
+    public List<FonaSmsMessage> smsRead(FonaSmsMessage.Folder folder, boolean markAsRead) throws FonaException {
+        FonaSms sms = new FonaSms(serial);
+        return sms.list(folder, markAsRead);
     }
 
     /**
      * Internal - Called when an SMS message has been received. To be notified
      * of incoming SMS messages, implement
      * {@link com.angryelectron.fona.FonaEventHandler} in your application and
-     * use {@link com.angryelectron.fona.FonaSerial#open(java.lang.String, java.lang.Integer)}.
+     * use
+     * {@link com.angryelectron.fona.FonaSerial#open(java.lang.String, java.lang.Integer)}.
      *
-     * @param sms SMS message.
+     * @param message FonaSmsMessage object containing only the message ID
+     * number.
      */
     @Override
-    public void onSmsMessageReceived(FonaSmsMessage sms) {
-        /* get message id from unsolicited response */
-        String fields[] = sms.response.split(",");
-        String messageId = fields[1];
-
-        /* read and parse response */
+    public void onSmsMessageReceived(FonaSmsMessage message) {
         try {
-            String response = serial.atCommand("AT+CMGR=" + messageId);
-            Pattern pattern = Pattern.compile("\\+CMGR: \"[A-Z ]+\",\"([\\+0-9]+)\",\"\",\"([0-9/,:+]+)\" (.+)");
-            Matcher matcher = pattern.matcher(response);
-            if (!matcher.find()) {
-                applicationEventHandler.onError("Invalid SMS message format: " + sms.response);
-                return;
-            } else {
-                sms.sender = matcher.group(1);
-                sms.setTimestamp(matcher.group(2));
-                sms.message = matcher.group(3);
-            }
-
-            /* delete message */
-            serial.atCommandOK("AT+CMGD=" + messageId);
-        } catch (FonaException | ParseException ex) {
-            applicationEventHandler.onError(ex.getMessage());
-            return;
+            this.applicationEventHandler.onSmsMessageReceived(smsRead(message.id, true));
+        } catch (FonaException ex) {
+            this.applicationEventHandler.onError(ex.getMessage());
         }
-        this.applicationEventHandler.onSmsMessageReceived(sms);
     }
 
     /**
@@ -554,8 +549,8 @@ public class Fona implements FonaEventHandler {
      *
      * @param password SIM card password.
      */
-    public void simUnlock(String password) {
-        throw new UnsupportedOperationException("Not Implemented.");
+    public void simUnlock(String password) throws FonaException {
+        serial.atCommandOK("AT+CPIN=" + password);
     }
 
     /**
