@@ -11,12 +11,17 @@ class FonaPOP3 {
 
     private final FonaSerial serial;
 
+    /**
+     * Constructor.
+     * @param serial 
+     */
     FonaPOP3(FonaSerial serial) {
         this.serial = serial;
     }
 
     /**
-     * Login to POP3 Server.
+     * Login to POP3 Server.  Server must previously be configured using
+     * {@link com.angryelectron.fona.Fona#emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}.
      *
      * @throws FonaException
      */
@@ -52,19 +57,11 @@ class FonaPOP3 {
         return Integer.parseInt(fields[1]);
     }
 
-    private Integer getMessageSize(int messageId) throws FonaException {
-        serial.atCommandOK("AT+POP3LIST=" + messageId);
-        String response = serial.expect("+POP3", 5000);
-        if (response.startsWith("+POP3OUT")) {
-            /* error */
-            String fields[] = response.split(" ");
-            Integer code = Integer.parseInt(fields[1]);
-            throw new FonaException(getPOPErrorMessage(code));
-        }
-        String fields[] = response.split(",");
-        return Integer.parseInt(fields[2]);
-    }
-
+    /**
+     * Get message from POP server.
+     * @param messageId
+     * @throws FonaException 
+     */
     private void loadMessage(int messageId) throws FonaException {
         serial.atCommandOK("AT+POP3CMD=4," + messageId);
         String response = serial.expect("+POP3", 5000);
@@ -77,6 +74,12 @@ class FonaPOP3 {
         }
     }
 
+    /**
+     * Read email message.
+     * @param messageId
+     * @return
+     * @throws FonaException 
+     */
     FonaEmailMessage readMessage(int messageId) throws FonaException {
         loadMessage(messageId);
         StringBuilder builder = new StringBuilder();
@@ -105,6 +108,11 @@ class FonaPOP3 {
         return email;
     }
 
+    /**
+     * Informative error message codes.
+     * @param code
+     * @return 
+     */
     private String getPOPErrorMessage(Integer code) {
         switch (code) {
             case 61:
@@ -127,5 +135,4 @@ class FonaPOP3 {
                 return "Unknown error code " + code;
         }
     }
-
 }
