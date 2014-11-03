@@ -14,7 +14,7 @@ import org.junit.Before;
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "/dev/ttyUSB1";
+    private static final String PORT = "";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
@@ -31,7 +31,6 @@ public class FonaTest {
     private static final Integer POPPORT = 110;
     private static final String POPUSER = "";
     private static final String POPPWD = "";
-    
 
     //SMS Settings.
     private static final String SMSNUMBER = "";
@@ -190,9 +189,10 @@ public class FonaTest {
         Integer value = fona.simReadADC();
         assertTrue(0 <= value && value <= 2800);
     }
-    
+
     /**
      * Test of simRSSI method, of class Fona.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
     @Test
@@ -202,6 +202,7 @@ public class FonaTest {
 
     /**
      * Test of simProvider method, of class Fona.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
     @Test
@@ -211,6 +212,7 @@ public class FonaTest {
 
     /**
      * Test of temperature method, of class Fona.
+     *
      * @throws com.angryelectron.fona.FonaException
      */
     @Test
@@ -218,6 +220,12 @@ public class FonaTest {
         System.out.println("temperature: " + fona.temperature() + "C");
     }
 
+    
+    /**
+     * TODO: improve the e-mail test methods so that they Send, Then 
+     * Receive, then Delete the same message on the same server.     
+     */
+    
     @Test
     public void testEmailSend() throws FonaException {
         System.out.println("emailSend");
@@ -226,42 +234,65 @@ public class FonaTest {
         if (!fona.gprsIsEnabled()) {
             fona.gprsEnable(APN, USER, PWD);
         }
-        fona.emailSMTP(SMTP, 25);
+        fona.emailSMTPLogin(SMTP, 25);
 
         FonaEmailMessage email = new FonaEmailMessage();
-        email.fromAddress = "fona@test.com";
-        email.fromName = "Fona";
+        email.from("fona@test.com", "Fona");
         email.to(TO_ADDRESS, TO_NAME);
         email.subject("Fona Java Library Email Test");
         email.body("Hello, from FONA.");
 
-        fona.emailSend(email);
+        fona.emailSMTPSend(email);
     }
-    
+
     @Test
-    public void testEmailReceive() throws FonaException{
+    public void testEmailReceive() throws FonaException {
+        assertFalse("POP3 server not specified", POPSERVER.isEmpty());
         if (!fona.gprsIsEnabled()) {
             fona.gprsEnable(APN, USER, PWD);
         }
-        fona.emailPOP(POPSERVER, POPPORT, POPUSER, POPPWD);
-        List<FonaEmailMessage> messages = fona.emailReceive();
+        fona.emailPOP3Login(POPSERVER, POPPORT, POPUSER, POPPWD);
+        try {
+            List<FonaEmailMessage> messages = fona.emailPOP3Get(false);
+            assertFalse("No messages.", messages.isEmpty());
+            FonaEmailMessage email = messages.get(1);
+            assertNotNull("No subject.", email.subject);
+            assertFalse("No subject", email.subject.isEmpty());
+            assertFalse("No body.", email.body.isEmpty());
+            assertFalse("No to address.", email.to.isEmpty());
+            assertFalse("No from address.", email.from.isEmpty());
+        } finally {
+            fona.emailPOP3Logout();
+        }
     }
     
+    @Test
+    public void testEmailDelete() throws FonaException {
+        assertFalse("POP3 Server unspecified.", POPSERVER.isEmpty());
+        System.out.println("emailDelete");
+        fona.emailPOP3Login(POPSERVER, POPPORT, POPUSER, POPPWD);
+        try {
+            fona.emailPOP3Delete(1);
+        } finally {
+            fona.emailPOP3Logout();
+        }
+    }
+
     @Test
     public void testSmsList() throws FonaException {
         System.out.println("smsList");
         List<FonaSmsMessage> messages = fona.smsRead(FonaSmsMessage.Folder.ALL, false);
-    }    
-    
+    }
+
     @Test
     public void testSmsRead() throws FonaException {
         System.out.println("smsRead");
-        FonaSmsMessage message = fona.smsRead(1, false);        
+        FonaSmsMessage message = fona.smsRead(1, false);
         assertNotNull("No folder.", message.folder);
         assertNotNull("No id.", message.id);
         assertNotNull("No message.", message.message);
         assertNotNull("No sender.", message.sender);
         assertNotNull("No timestamp.", message.timestamp);
     }
-    
+
 }
