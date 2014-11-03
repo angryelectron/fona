@@ -184,14 +184,16 @@ class FonaSerial implements SerialPortEventListener {
         try {
             String line;
             while (readBuffer.ready() && (line = readBuffer.readLine()) != null) {
-                if (!line.isEmpty()) {
-                    if (isUnsolicited(line)) {
-                        System.out.println("DEBUG unsolicited read: " + line);
-                        unsolicitedQueue.add(line);
-                    } else {
-                        System.out.println("DEBUG read: " + line);
-                        lineQueue.add(line);
-                    }
+                /**
+                 * While it might make sense to ignore empty lines,
+                 * blank newlines are needed when parsing e-mail and others.
+                 */
+                if (isUnsolicited(line)) {
+                    System.out.println("DEBUG unsolicited read: " + line);
+                    unsolicitedQueue.add(line);
+                } else {
+                    System.out.println("DEBUG read: " + line);
+                    lineQueue.add(line);
                 }
             }
         } catch (IOException ex) {
