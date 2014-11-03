@@ -84,7 +84,7 @@ class FonaSms {
         if (!markAsRead) {
             command += ",1";
         }
-        String response = serial.atCommand(command);
+        String response = serial.atCommand(command).trim();
         if (response.startsWith("+CMS ERROR:")) {
             throw new FonaException("Error reading SMS: " + response);
         } else if (response.startsWith("OK")) {
