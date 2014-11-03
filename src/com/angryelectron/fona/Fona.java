@@ -93,7 +93,7 @@ public class Fona implements FonaEventHandler {
      * @param port SMTP port, typically 25.
      * @throws FonaException
      */
-    public void emailSMTP(String server, Integer port) throws FonaException {
+    public void emailSMTPLogin(String server, Integer port) throws FonaException {
         /* this number must match the bearer profide ID used in enableGPRS() */
         serial.atCommandOK("AT+EMAILCID=1");
 
@@ -116,13 +116,14 @@ public class Fona implements FonaEventHandler {
      * @param password SMTP password.
      * @throws FonaException
      */
-    public void emailSMTP(String server, Integer port, String user, String password) throws FonaException {
-        emailSMTP(server, port);
+    public void emailSMTPLogin(String server, Integer port, String user, String password) throws FonaException {
+        emailSMTPLogin(server, port);
         serial.atCommandOK("AT+SMTPAUTH=1,\"" + user + "\",\"" + password + "\"");
     }
 
     /**
-     * Configure POP server for receiving e-mail.
+     * Configure POP server for receiving e-mail.  You must login before using
+     * {@link #emailPOP3Get(boolean)} or {@link #emailPOP3Delete(int)}.
      *
      * @param server POP server host name or IP.
      * @param port POP port. Typically 110.
@@ -130,26 +131,35 @@ public class Fona implements FonaEventHandler {
      * @param password POP password.
      * @throws FonaException
      */
-    public void emailPOP(String server, Integer port, String user, String password) throws FonaException {
-        serial.atCommandOK("AT+EMAILCID=1");
-        serial.atCommandOK("AT+EMAILTO=30");
-        serial.atCommandOK("AT+POP3SRV=\"" + server + "\",\"" + user + "\",\"" + password + "\"," + port);
+    public void emailPOP3Login(String server, Integer port, String user, String password) throws FonaException {
+        FonaPOP3 pop3 = new FonaPOP3(serial);
+        pop3.login(server, port, user, password);
+    }
+    
+    public void emailPOP3Logout() throws FonaException {
+        FonaPOP3 pop3 = new FonaPOP3(serial);
+        pop3.logout();
     }
 
     /**
-     * Send e-mail. Ensure SMTP is configured using
-     * {@link #emailSMTP(java.lang.String, java.lang.Integer)} or
-     * {@link #emailSMTP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
+     * Send e-mail.  Note that if the FonaEmailMessage has more than one
+     * FROM address, only the first one will be used.
+     * 
+     * Ensure SMTP is configured using
+     * {@link #emailSMTPLogin(java.lang.String, java.lang.Integer)} or
+     * {@link #emailSMTPLogin(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
      *
      * @param email FonaEmailMessage object.
      * @throws FonaException
      */
-    public void emailSend(FonaEmailMessage email) throws FonaException {
+    public void emailSMTPSend(FonaEmailMessage email) throws FonaException {
 
         /**
          * Set FROM:
          */
-        serial.atCommandOK("AT+SMTPFROM=\"" + email.fromAddress + "\",\"" + email.fromName + "\"");
+        String fromName = email.from.firstEntry().getValue();
+        String fromAddress = email.from.firstEntry().getKey();
+        serial.atCommandOK("AT+SMTPFROM=\"" + fromAddress + "\",\"" + fromName + "\"");
 
         /**
          * Set TO: recipients
@@ -189,26 +199,40 @@ public class Fona implements FonaEventHandler {
          * Send it.
          */
         serial.atCommandOK("AT+SMTPSEND");
-        String response = serial.expect("+SMTPSEND", 5000);
+        String response = serial.expect("+SMTPSEND", 30000);
         if (!response.equals("+SMTPSEND: 1")) {
             throw new FonaException("Email send failed: " + response);
         }
     }
 
     /**
-     * Download email messages from POP3 server. Configure the POP3 server using
-     * {@link #emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}.
+     * Download email messages from POP3 server. Will fail if not logged into
+     * POP3 server with
+     * {@link #emailPOP3Login(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
      *
+     * @param markAsRead if true, message will be marked as read.
      * @return A list of {@link com.angryelectron.fona.FonaEmailMessage}.
      * @throws FonaException
      */
-    public List<FonaEmailMessage> emailReceive() throws FonaException {
+    public List<FonaEmailMessage> emailPOP3Get(boolean markAsRead) throws FonaException {
         List<FonaEmailMessage> messages = new ArrayList<>();
         FonaPOP3 pop3 = new FonaPOP3(serial);
-        pop3.login();
+        for (int i = 1; i <= pop3.getNewMessageCount(); i++) {
+            FonaEmailMessage message = pop3.readMessage(i, markAsRead);
+            messages.add(message);
+        }
+        return messages;
+    }
 
-        //TODO: finish implementing and testing this method.
-        throw new UnsupportedOperationException("Not implemented.");
+    /**
+     * Delete email message from POP3 server.
+     *
+     * @param messageId The ID of the message on the POP3 server (not the 
+     * "Message-id" header value).
+     */
+    public void emailPOP3Delete(int messageId) throws FonaException {
+        FonaPOP3 pop3 = new FonaPOP3(serial);
+        pop3.delete(messageId);
     }
 
     /**
@@ -226,7 +250,7 @@ public class Fona implements FonaEventHandler {
             throw new FonaException("Invalid pin value (0,1)");
         }
         String response = serial.atCommand("AT+SGPIO=0," + pin + ",1," + value);
-        if (!response.equals("OK")) {
+        if (!response.trim().equals("OK")) {
             throw new FonaException("gpioSetOutput failed.");
         }
     }
@@ -263,7 +287,7 @@ public class Fona implements FonaEventHandler {
             throw new FonaException("Invalid pin value (1-3).");
         }
         String response = serial.atCommand("AT+SGPIO=0," + pin + ",0");
-        if (!response.equals("OK")) {
+        if (!response.trim().equals("OK")) {
             throw new FonaException("GPIO config input pin failed.");
         }
     }
@@ -298,7 +322,7 @@ public class Fona implements FonaEventHandler {
      */
     public void gprsDisable() throws FonaException {
         try {
-            serial.atCommand("AT+SAPBR=0,1");
+            serial.atCommand("AT+SAPBR=0,1", 10000);
             serial.atCommand("AT+CGATT=0", 10000);
         } catch (FonaException ex) {
             throw new FonaException("GPRS disable failed: " + ex.getMessage());
@@ -357,7 +381,7 @@ public class Fona implements FonaEventHandler {
         serial.atCommandOK("AT+HTTPPARA=\"CID\",1");
         serial.atCommandOK("AT+HTTPPARA=\"URL\",\"" + address + "\"");
         serial.atCommandOK("AT+HTTPACTION=0");
-        String httpResult = serial.expect("HTTPACTION", 5000);
+        String httpResult = serial.expect("HTTPACTION", 5000).trim();
         if (!httpResult.startsWith("+HTTPACTION: 0")) {
             serial.atCommand("AT+HTTPTERM");
             throw new FonaException("Invalid HTTP response: " + httpResult);
@@ -431,7 +455,7 @@ public class Fona implements FonaEventHandler {
      */
     public Date gprsTime() throws FonaException {
         String response = serial.atCommand("AT+CIPGSMLOC=2,1");
-        if (!response.startsWith("+CIPGSMLOC: 0")) {
+        if (!response.contains("+CIPGSMLOC: 0")) {
             throw new FonaException("Can't get time: " + response);
         }
         DateFormat df = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
