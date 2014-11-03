@@ -9,7 +9,7 @@ and applications light-weight access to the Internet and cellular networks.
 
 While most devices capable of running Java are also capable of establishing a
 PPP link, this can quickly burn through the small monthly data allotment
-typical of low-cost GPRS/M2M data plans, and does provide access to SMS.
+typical of low-cost GPRS/M2M data plans, and doesn't provide access to SMS.
 
 By using the Fona/Sim800 Library instead of a full-fledged network via PPP,
 HTTP requests and SMS messages can be exchanged with a minimal amount of
@@ -42,8 +42,8 @@ Unsupported by Hardware:
 Build
 ---
 To build this library you will need the Java 7 SDK and Apache Ant. Run 'ant
-jar' and optionally 'ant javadocs' to build.  This will produce ./dist/fona.jar
-and ./dist/javadocs.
+jar' and optionally 'ant javadoc' to build.  This will produce ./dist/fona.jar
+and ./dist/javadoc.
 
 Alternatively, open and build the library using the Netbeans IDE.  
 
@@ -53,9 +53,9 @@ settings.  Then run 'ant test' (or run from the Netbeans IDE).
 
 Use
 ---
-Build and add ./dist/fona.jar to your project.  
+Build, then add ./dist/fona.jar to your project.  
 
-You will also need to add the RXTX library.  You can use
+You will also need to add the RXTX library to your project.  You can use
 ./lib/RXTXcomm-2.2pre2.jar if it is not already part of your class path.
 
 To use any of the e-mail features, you'll need Java Mail.  You can use
@@ -97,7 +97,7 @@ Send an e-mail:
 
 	/* login to network */	
 	if (!fona.gprsIsEnabled() {
-		fona.grpsEnable(YOUR_APN, YOUR_USER, YOUR_PASSWORD); //get this from your provider
+		fona.grpsEnable(YOUR_APN, YOUR_USER, YOUR_PASSWORD); //provider-specific
 	}
 
 	/* send e-mail, then (optionally) logout */
