@@ -6,6 +6,7 @@
 package com.angryelectron.fona;
 
 import java.util.HashMap;
+import java.util.TreeMap;
 
 /**
  * Fona E-mail message object.  
@@ -16,15 +17,14 @@ import java.util.HashMap;
  *   <li> Configure POP: {@link com.angryelectron.fona.Fona#emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}</li>
  * </ul>
  */
-public class FonaEmailMessage {
-    String fromAddress;
-    String fromName;
+public class FonaEmailMessage {    
+    final TreeMap<String, String> from = new TreeMap<>();
     final HashMap<String, String> to = new HashMap<>();
     final HashMap<String, String> cc = new HashMap<>();
     final HashMap<String, String> bcc = new HashMap<>();    
     String subject;
     String body;
-    Integer messageId;
+    Integer messageId;               
     
     /**
      * Set the name and e-mail address of the sender.
@@ -32,8 +32,7 @@ public class FonaEmailMessage {
      * @param name Sender's name.
      */
     public void from(String address, String name) {
-        this.fromAddress = address;
-        this.fromName = name;
+        from.put(address, name);        
     }
     
     /**
