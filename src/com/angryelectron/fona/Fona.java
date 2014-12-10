@@ -122,7 +122,7 @@ public class Fona implements FonaEventHandler {
     }
 
     /**
-     * Configure POP server for receiving e-mail.  You must login before using
+     * Configure POP server for receiving e-mail. You must login before using
      * {@link #emailPOP3Get(boolean)} or {@link #emailPOP3Delete(int)}.
      *
      * @param server POP server host name or IP.
@@ -135,16 +135,16 @@ public class Fona implements FonaEventHandler {
         FonaPOP3 pop3 = new FonaPOP3(serial);
         pop3.login(server, port, user, password);
     }
-    
+
     public void emailPOP3Logout() throws FonaException {
         FonaPOP3 pop3 = new FonaPOP3(serial);
         pop3.logout();
     }
 
     /**
-     * Send e-mail.  Note that if the FonaEmailMessage has more than one
-     * FROM address, only the first one will be used.
-     * 
+     * Send e-mail. Note that if the FonaEmailMessage has more than one FROM
+     * address, only the first one will be used.
+     *
      * Ensure SMTP is configured using
      * {@link #emailSMTPLogin(java.lang.String, java.lang.Integer)} or
      * {@link #emailSMTPLogin(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
@@ -227,7 +227,7 @@ public class Fona implements FonaEventHandler {
     /**
      * Delete email message from POP3 server.
      *
-     * @param messageId The ID of the message on the POP3 server (not the 
+     * @param messageId The ID of the message on the POP3 server (not the
      * "Message-id" header value).
      */
     public void emailPOP3Delete(int messageId) throws FonaException {
@@ -377,23 +377,32 @@ public class Fona implements FonaEventHandler {
             throw new FonaException("GPRS is not enabled.");
         }
         String address = url.replaceAll("http://", "");
-        serial.atCommandOK("AT+HTTPINIT");
-        serial.atCommandOK("AT+HTTPPARA=\"CID\",1");
-        serial.atCommandOK("AT+HTTPPARA=\"URL\",\"" + address + "\"");
-        serial.atCommandOK("AT+HTTPACTION=0");
-        String httpResult = serial.expect("HTTPACTION", 5000).trim();
-        if (!httpResult.startsWith("+HTTPACTION: 0")) {
-            serial.atCommand("AT+HTTPTERM");
-            throw new FonaException("Invalid HTTP response: " + httpResult);
-        }
-        String httpFields[] = httpResult.split(",");
-        Integer httpStatusCode = Integer.parseInt(httpFields[1]);
-        if (httpStatusCode != 200) {
-            throw new HTTPException(httpStatusCode);
-        }
 
-        String response = serial.atCommand("AT+HTTPREAD", 5000);
-        serial.atCommandOK("AT+HTTPTERM");
+        serial.atCommandOK("AT+HTTPINIT");
+
+        /**
+         * Make sure the HTTP connection is terminated, regardless
+         * of what happens in this try block.
+         * 
+         */
+        String response;
+        try {
+            serial.atCommandOK("AT+HTTPPARA=\"CID\",1");
+            serial.atCommandOK("AT+HTTPPARA=\"URL\",\"" + address + "\"");
+            serial.atCommandOK("AT+HTTPACTION=0");
+            String httpResult = serial.expect("HTTPACTION", 5000).trim();
+            if (!httpResult.startsWith("+HTTPACTION: 0")) {                
+                throw new FonaException("Invalid HTTP response: " + httpResult);
+            }
+            String httpFields[] = httpResult.split(",");
+            Integer httpStatusCode = Integer.parseInt(httpFields[1]);
+            if (httpStatusCode != 200) {
+                throw new HTTPException(httpStatusCode);
+            }
+            response = serial.atCommand("AT+HTTPREAD", 5000);
+        } finally {
+            serial.atCommandOK("AT+HTTPTERM");
+        }
         //ignore the first line and the last line (which is "OK\n")
         int start = response.indexOf(System.lineSeparator());
         return response.substring(start, response.length() - 3);
