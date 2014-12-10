@@ -1,4 +1,4 @@
-Fona / Sim800 Library
+Fona / Sim800 Java Library
 ===
 A Java library for controlling an [Adafruit
 FONA](https://www.adafruit.com/product/1946) or other SIM800-based cellular
