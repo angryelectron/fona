@@ -189,10 +189,10 @@ class FonaSerial implements SerialPortEventListener {
                  * blank newlines are needed when parsing e-mail and others.
                  */
                 if (isUnsolicited(line)) {
-                    System.out.println("DEBUG unsolicited read: " + line);
+                    //.println("DEBUG unsolicited read: " + line);
                     unsolicitedQueue.add(line);
                 } else {
-                    System.out.println("DEBUG read: " + line);
+                    //System.out.println("DEBUG read: " + line);
                     lineQueue.add(line);
                 }
             }
@@ -229,7 +229,7 @@ class FonaSerial implements SerialPortEventListener {
     void write(String data) throws FonaException {
         data += "\r";
         try {
-            System.out.println("DEBUG write: " + data);
+            //System.out.println("DEBUG write: " + data);
             outStream.write(data.getBytes());
         } catch (IOException ex) {
             throw new FonaException(ex.getMessage());
