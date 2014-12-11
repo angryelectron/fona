@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.xml.ws.http.HTTPException;
 
 /**
@@ -378,6 +380,7 @@ public class Fona implements FonaEventHandler {
         }
         String address = url.replaceAll("http://", "");
 
+        serial.atCommand("AT+HTTPTERM"); /* don't care if this works or not */
         serial.atCommandOK("AT+HTTPINIT");
 
         /**
@@ -401,11 +404,19 @@ public class Fona implements FonaEventHandler {
             }
             response = serial.atCommand("AT+HTTPREAD", 5000);
         } finally {
-            serial.atCommandOK("AT+HTTPTERM");
+            /* try to shut down, regardless of outcome */
+            serial.atCommand("AT+HTTPTERM");
         }
-        //ignore the first line and the last line (which is "OK\n")
-        int start = response.indexOf(System.lineSeparator());
-        return response.substring(start, response.length() - 3);
+   
+        /**
+         * Response format:  \n+HTTPREAD:<data_len>\n<data>\nOK         
+         */
+        Pattern pattern = Pattern.compile("\n\\+HTTPREAD: ([0-9+])\n(.*)\nOK", Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(response);
+        if (!matcher.find()) {
+            throw new FonaException("HTTP Read Failed: " + response);
+        } 
+        return matcher.group(2);
     }
 
     /**
