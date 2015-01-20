@@ -131,7 +131,7 @@ Receive SMS messages asynchronously:
 About
 ---
 * Fona / Sim800 Library 
-* Copyright 2014, Andrew Bythell <abythell@ieee.org>
+* Copyright 2014-2015, Andrew Bythell <abythell@ieee.org>
 * http://angryelectron.com/
  
 This library is free software: you can redistribute it and/or modify it under
