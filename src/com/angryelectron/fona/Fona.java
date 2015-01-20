@@ -411,12 +411,12 @@ public class Fona implements FonaEventHandler {
         /**
          * Response format:  \n+HTTPREAD:<data_len>\n<data>\nOK         
          */
-        Pattern pattern = Pattern.compile("\n\\+HTTPREAD: ([0-9+])\n(.*)\nOK", Pattern.DOTALL);
+        Pattern pattern = Pattern.compile("\n\\+HTTPREAD: [0-9]+\n(.*)\nOK", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(response);
         if (!matcher.find()) {
             throw new FonaException("HTTP Read Failed: " + response);
         } 
-        return matcher.group(2);
+        return matcher.group(1);
     }
 
     /**
