@@ -314,4 +314,15 @@ public class FonaTest {
         fona.simFunctionality(Mode.FULL, true); 
         fona.simWaitForReady(15000, Ready.BOTH);
     }
+    
+    @Test
+    public void testSleepAndWake() throws FonaException {
+        System.out.println("sleepAndWake");
+        fona.simFunctionality(Mode.MIN, false);
+        assertFalse(fona.gprsIsEnabled());
+        fona.simFunctionality(Mode.FULL, false);
+        fona.simWaitForReady(15000, Ready.NETWORK);
+        fona.gprsEnable(APN, USER, PWD);
+        assertTrue(fona.gprsIsEnabled());
+    }
 }

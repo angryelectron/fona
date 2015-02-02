@@ -90,6 +90,7 @@ public class Fona implements FonaEventHandler {
         Properties properties = System.getProperties();
         String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", "");
         properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + ":" + port); 
+        properties.setProperty("gnu.io.rxtx.NoVersionOutput", "true");
         
         /**
          * Connect the serial port, listener thread, and this class so
@@ -110,11 +111,7 @@ public class Fona implements FonaEventHandler {
         serial.atCommandOK("AT+IPR=" + baud); //use fixed baud-rate
         serial.atCommandOK("AT+CGREG=1"); //turn on unsolicited network status 
         serial.atCommandOK ("AT&W"); //persist settings through reboot/reset
-        
-        /**
-         * Reset the module so isReady flag can be updated from a known state.
-         */
-        //simFunctionality(Mode.FULL, true);                
+                
     }
 
     /**
@@ -400,6 +397,11 @@ public class Fona implements FonaEventHandler {
      * @throws FonaException
      */
     public boolean gprsIsEnabled() throws FonaException {
+    
+        if (!networkStatus.equals(Network.REGISTERED) && !networkStatus.equals(Network.ROAMING)) {
+            return false;
+        }
+        
         /**
          * Check if GPRS is enabled.
          */
@@ -773,7 +775,14 @@ public class Fona implements FonaEventHandler {
      * <li>{@link FonaEventHandler#onSerialReady() }</li>    
      * <li>{@link FonaEventHandler#onNetworkStatusChange(com.angryelectron.fona.Fona.Network)}</li>
      * </ul>
-     * 
+     * <p>Here is a typical "wakup" sequence:</p>
+     * <pre>
+     * {@code      
+     * simFunctionality(Mode.FULL, false); // wake-up
+     * simWaitForReady(15000, Ready.NETWORK); // wait for network
+     * gprsEnable(APN, USER, PWD); //login with credentials     
+     * }
+     * </pre>
      * @param mode new Functionality Mode: MIN, FULL, or FLIGHT.
      * @param reset When true, module will reset and block until module is ready.
      * @throws com.angryelectron.fona.FonaException
@@ -792,15 +801,15 @@ public class Fona implements FonaEventHandler {
         switch(mode) {
             case MIN:
                 if (currentMode == 4) {
-                    simFunctionality(Mode.FULL, false);
-                    newMode = 0;
+                    simFunctionality(Mode.FULL, false);                    
                 }
+                newMode = 0;
                 break;            
             case FLIGHT:
                 if (currentMode == 0) {
-                    simFunctionality(Mode.FULL, false);
-                    newMode = 4;
+                    simFunctionality(Mode.FULL, false);                    
                 }
+                newMode = 4;
                 break;
             case FULL:
             default:
