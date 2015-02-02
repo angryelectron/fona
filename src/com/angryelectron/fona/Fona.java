@@ -11,24 +11,31 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.ws.http.HTTPException;
 
 /**
  * Primary class for controlling a Fona / SIM800 cellular module via serial
- * port.
- * <p>
- * Based on the <a
- * href="http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf">
+ * port. 
+ * 
+ * <p>Based on the 
+ * <a href="http://www.adafruit.com/datasheets/sim800_series_at_command_manual_v1.01.pdf">
  * Sim800 AT Command Manual</a>, this class only implements a subset of the
  * features supported by the SIM800. Feel free to implement any missing features
  * by contributing to the
  * <a href="http://github.com/angryelectron/fona">GitHub Project</a>.</p>
- * <p>
- * Note: All network-based operations use a hardcoded Bearer Profile Identifier
- * of 1.</p>
- *
+ * 
+ * <p><b>Notes</b> 
+ * <ul>
+ * 
+ * <li>All network-based operations use a hardcoded Bearer Profile Identifier
+ * of 1.</li>
+ * 
+ * <li>Some settings, required for correct operation of this API, will be written
+ * to NVRAM.  See {@link #open(java.lang.String, java.lang.Integer)} for a details.
+ * </p>
  */
 public class Fona implements FonaEventHandler {
 
@@ -40,19 +47,74 @@ public class Fona implements FonaEventHandler {
     private final FonaSerial serial = new FonaSerial();
     private FonaEventHandler applicationEventHandler = null;
     private FonaUnsolicitedListener unsolicitedListener = null;
+    
+    
+    /**
+     * These flag are set by the unsolicited event handlers
+     * when different modules become ready
+     */
+    private volatile boolean isSerialReady = false;
+    private volatile boolean isCallReady = false;
+    private volatile boolean isSmsReady = false;
+    private volatile Network networkStatus = Network.UNKNOWN;
 
     /**
-     * Open serial port connection to SIM800 module.
-     *
+     * Open serial port connection to SIM800 module.  This method will alter
+     * the configuration of the SIM8000 with settings necessary for the proper
+     * operation of the API, writing the values to NVRAM:
+     * <br/>
+     * <ul>
+     * <li>Auto-baud is disabled (AT+IPR=baud)</li>
+     * <li>Local echo is disabled (ATE0).</li>
+     * <li>Network registration unsolicited result code is enabled (AT+CGREG=1)</li>
+     * <li>All other settings restored to factory-defaults (AT&F)</li>
+     * </ul>    
+     * 
+     * <p><b>Note:</b> Disabling auto-baud is required to receive notification when the
+     * serial port is ready for use.  If the application re-enables auto-baud,
+     * {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)} will
+     * always timeout when used with {@link Ready#SERIAL} or {@link Ready#BOTH}, 
+     * but {@link Ready#NETWORK} will work and provide reasonable assurance that
+     * the serial module is also ready.</p>     
+     * 
      * @param port Port name (/dev/ttyUSB1, COM7, etc.)
-     * @param baud Baud rate. 115200 is recommended.
+     * @param baud Baud rate. 115200 is recommended.     
      * @throws com.angryelectron.fona.FonaException
      */
     public void open(String port, Integer baud) throws FonaException {
+        /**
+         * Make sure RXTX can enumerate this port.  This is to support
+         * platforms like Raspberry Pi and Beaglebone, without having to 
+         * worry about setting the property on the command line.
+         */
+        Properties properties = System.getProperties();
+        String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", "");
+        properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + ":" + port); 
+        
+        /**
+         * Connect the serial port, listener thread, and this class so
+         * unsolicited responses can be handled.
+         */
+        unsolicitedListener = new FonaUnsolicitedListener(serial.getUnsolicitedQueue());
+        unsolicitedListener.start(this);
+        
         serial.open(port, baud);
+        
+        /**
+         * Settings that are critical to the proper operation of the Fona
+         * library.
+         */
         serial.atCommand("AT");
         serial.atCommand("AT&F");
-        serial.atCommand("ATE0"); //turn off local echo         
+        serial.atCommand("ATE0"); //turn off local echo                
+        serial.atCommandOK("AT+IPR=" + baud); //use fixed baud-rate
+        serial.atCommandOK("AT+CGREG=1"); //turn on unsolicited network status 
+        serial.atCommandOK ("AT&W"); //persist settings through reboot/reset
+        
+        /**
+         * Reset the module so isReady flag can be updated from a known state.
+         */
+        //simFunctionality(Mode.FULL, true);                
     }
 
     /**
@@ -65,15 +127,8 @@ public class Fona implements FonaEventHandler {
      * @throws FonaException
      */
     public void open(String port, Integer baud, FonaEventHandler handler) throws FonaException {
-        this.open(port, baud);
-        this.applicationEventHandler = handler;
-
-        /**
-         * Connect the serial port, listener thread, and this class so
-         * unsolicited responses can be handled.
-         */
-        unsolicitedListener = new FonaUnsolicitedListener(serial.getUnsolicitedQueue());
-        unsolicitedListener.start(this);
+        this.applicationEventHandler = handler;        
+        this.open(port, baud);        
     }
 
     /**
@@ -86,6 +141,7 @@ public class Fona implements FonaEventHandler {
         if (unsolicitedListener != null) {
             unsolicitedListener.stop();
         }
+        isSerialReady = false;
     }
 
     /**
@@ -325,9 +381,15 @@ public class Fona implements FonaEventHandler {
     public void gprsDisable() throws FonaException {
         try {
             serial.atCommand("AT+SAPBR=0,1", 10000);
-            serial.atCommand("AT+CGATT=0", 10000);
+            serial.atCommand("AT+CGATT=0", 10000);            
         } catch (FonaException ex) {
             throw new FonaException("GPRS disable failed: " + ex.getMessage());
+        }
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < 5000) {
+            if (networkStatus == Network.UNREGISTERED) {
+                return;
+            }
         }
     }
 
@@ -341,7 +403,7 @@ public class Fona implements FonaEventHandler {
         /**
          * Check if GPRS is enabled.
          */
-        String response = serial.atCommand("AT+CGATT?");
+        String response = serial.atCommand("AT+CGATT?");        
         if (response.contains("0")) {
             return false;
         } else if (!response.contains("1")) {
@@ -538,22 +600,90 @@ public class Fona implements FonaEventHandler {
      */
     @Override
     public void onSmsMessageReceived(FonaSmsMessage message) {
-        try {
-            this.applicationEventHandler.onSmsMessageReceived(smsRead(message.id, true));
-        } catch (FonaException ex) {
-            this.applicationEventHandler.onError(ex.getMessage());
+        if (applicationEventHandler != null) {
+            try {
+                this.applicationEventHandler.onSmsMessageReceived(smsRead(message.id, true));
+            } catch (FonaException ex) {
+                this.applicationEventHandler.onError(ex.getMessage());
+            }
         }
     }
 
     /**
      * Internal. Called when an error has occurred handling an unsolicited
-     * serial response.
+     * serial response.  Will also fire the application's FonaEventHandler,
+     * if registered.
      *
      * @param message Error message.
      */
     @Override
     public void onError(String message) {
-        this.applicationEventHandler.onError(message);
+        if (applicationEventHandler != null) {
+            this.applicationEventHandler.onError(message);
+        }
+    }
+    
+    /**
+     * Cellular network registration status used with
+     * {@link FonaEventHandler#onNetworkStatusChange(com.angryelectron.fona.Fona.Network) }.
+     * Status descriptions are quoted from the SIM800 AT Command Manual (ie.
+     * abbreviations not necessarily understood).
+     */
+    public enum Network {
+        /**
+         * Not registered.  MT is not currently searching an operator to register with.
+         * The GPRS service is disabled, the UE is allowed to re-attached for GPRS if
+         * requested by the user.
+         */
+        UNREGISTERED(0), 
+        
+        /**
+         * Registered, home network.
+         */
+        REGISTERED(1), 
+        
+        /**
+         * Not registered, but MT is currently trying to attach or searching an
+         * operator to register with.  The GPRS service is enabled, but an allowable 
+         * PLMN is currently not available.  The UE will start a GPRS attach as
+         * soon as an allowable PLMN is available.
+         */
+        SEARCHING(2), 
+        
+        /**
+         * Registration denied.  The GPRS servis is disabled, the UE is not allowed
+         * to attached for GPRS if it is requested by the user.
+         */
+        DENIED(3), 
+        
+        /**
+         * Unknown.
+         */
+        UNKNOWN(4),
+        
+        /**
+         * Registered, roaming.
+         */
+        ROAMING(5);
+        
+        private final int value;
+        
+        Network(int value) {
+            this.value = value;
+        }
+    };
+    
+    /**
+     * Internal.  Called when network status changes.  Will also fire the
+     * application's FonaEventHandler, if registered.
+     * @param status New network state.
+     */
+    @Override
+    public void onNetworkStatusChange(Network status) {        
+        this.networkStatus = status;
+        if (applicationEventHandler != null) {
+            this.applicationEventHandler.onNetworkStatusChange(status);
+        }
     }
 
     /**
@@ -569,8 +699,206 @@ public class Fona implements FonaEventHandler {
      */
     public void simPowerOff() throws FonaException {
         serial.atCommand("AT+CPOWD=0");
+        isSerialReady = false;
+    }
+    
+    /**
+     * Sleep Mode.  When enabled, the SIM module enters sleep mode when DTR is
+     * high, and wakes when DTR is low.  When asleep, the serial port is inaccessible
+     * until 50ms after wake-up. 
+     * <br/>
+     * <p><b>Note:</b> FONA modules don't use the DTR
+     * pin, so if sleep is enabled the only way to wake-up is to reset/power-cycle.</p>
+     * 
+     * @param enable Use low-power sleep mode when true.
+     * @throws FonaException 
+     */
+    public void simSleepMode(boolean enable) throws FonaException {                
+        if (enable) {
+            serial.atCommandOK("AT+CSCLK=1");
+        } else {
+            serial.atCommandOK("AT+CSCLK=0");
+        }
     }
 
+    /**
+     * Internal.  Used by methods that reboot or reset the module to wait until
+     * the module is ready for use.  When called, this method will fire the
+     * application's FonaEventHandler, if registered.
+     */
+    @Override
+    public void onSerialReady() {
+        isSerialReady = true;
+        if (applicationEventHandler != null) {
+            applicationEventHandler.onSerialReady();
+        }
+    }    
+    
+    /**
+     * Functionality modes used with 
+     * {@link #simFunctionality(com.angryelectron.fona.Fona.Mode, boolean)}.
+     */
+    public enum Mode {
+        /**
+         * Minimum functionality.  RF function and SIM card functions are disabled,
+         * but serial port is still accessible.  Current consumption 0.796 mA (when
+         * sleeping).
+         */
+        MIN, 
+        
+        /**
+         * Full functionality.  This is the default mode.  Current consumption 1.16
+         * mA (when sleeping).
+         */
+        FULL, 
+        
+        /**
+         * Flight/Airplane mode.  RF functions are disabled.  Current consumption
+         * 0.892 mA (when sleeping).
+         */
+        FLIGHT
+    };
+    
+    /**
+     * Set functionality mode.  Default mode is FULL.  In cases where the mode is
+     * changing to/from MIN and FLIGHT modes, this method will switch to FULL mode
+     * as an intermediate step, as changing between these modes directly is not
+     * allowed.  
+     * 
+     * <p>If reset is enabled, the application must wait until the serial port is
+     * ready before sending AT commands, and until the network is registered before
+     * sending any GPRS commands.  This can be done using:</p>
+     * <ul>
+     * <li>{@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready) }</li>
+     * <li>{@link FonaEventHandler#onSerialReady() }</li>    
+     * <li>{@link FonaEventHandler#onNetworkStatusChange(com.angryelectron.fona.Fona.Network)}</li>
+     * </ul>
+     * 
+     * @param mode new Functionality Mode: MIN, FULL, or FLIGHT.
+     * @param reset When true, module will reset and block until module is ready.
+     * @throws com.angryelectron.fona.FonaException
+     */
+    public void simFunctionality(Mode mode, boolean reset) throws FonaException {                       
+        /* get current mode */
+        String response = serial.atCommand("AT+CFUN?");
+        Pattern pattern = Pattern.compile("\\+CFUN: ([014])\n\nOK");
+        Matcher matcher = pattern.matcher(response);
+        if (!matcher.find()) {
+            throw new FonaException("Functionality query failed: " + response);
+        }        
+        Integer currentMode = Integer.parseInt(matcher.group(1));                
+        Integer newMode = 1;
+         
+        switch(mode) {
+            case MIN:
+                if (currentMode == 4) {
+                    simFunctionality(Mode.FULL, false);
+                    newMode = 0;
+                }
+                break;            
+            case FLIGHT:
+                if (currentMode == 0) {
+                    simFunctionality(Mode.FULL, false);
+                    newMode = 4;
+                }
+                break;
+            case FULL:
+            default:
+                newMode = 1;
+                break;
+        }
+        if (reset) {
+            serial.atCommandOK("AT+CFUN=" + newMode + ",1");            
+        } else {
+            serial.atCommandOK("AT+CFUN=" + newMode);
+        }
+    }
+    
+    /**
+     * Reset / reboot the SIM800 module.  Preserves the current functionality
+     * mode.  Be sure to wait for serial and/or network to become ready after
+     * reboot.  See {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)}.
+     * @throws FonaException If current functionality mode cannot be determined.
+     */
+    public void simReset() throws FonaException {
+        /* get current mode */
+        String response = serial.atCommand("AT+CFUN?");
+        Pattern pattern = Pattern.compile("\\+CFUN: ([014])\n\nOK");
+        Matcher matcher = pattern.matcher(response);
+        if (!matcher.find()) {
+            throw new FonaException("Functionality query failed: " + response);
+        }        
+        Integer currentMode = Integer.parseInt(matcher.group(1));   
+        serial.atCommandOK("AT+CFUN=" + currentMode + ",1");
+    }
+    
+    /**
+     * Ready wait modes used with 
+     * {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)}.
+     */
+    public enum Ready {
+        /**
+         * Wait for serial module.  When ready, AT commands can be sent but
+         * network functions may fail.  Will only work when auto-bauding is
+         * disabled.
+         */
+        SERIAL, 
+        
+        /**
+         * Wait for cellular network.  Network functions will fail if called before
+         * the device has registered with a cellular provider.  In cases where
+         * auto-baud is enabled, 
+         */
+        NETWORK, 
+        
+        /**
+         * Wait for the serial and cellular network to be ready.  Same behavior
+         * as NETWORK, but 
+         */
+        BOTH
+    };
+    
+    /**
+     * Wait until SIM800 module is ready. Blocks until ready.  For asynchronous
+     * notification, use
+     * {@link FonaEventHandler#onNetworkStatusChange(com.angryelectron.fona.Fona.Network)}
+     * and {@link FonaEventHandler#onSerialReady()}.  See
+     * {@link #open(java.lang.String, java.lang.Integer)} for an important note
+     * about auto-baud and the implications on this method.
+     *
+     * @param timeout Max time in milliseconds to wait for module to become ready.    
+     * In tests it took as long as 15 seconds for the network to register following
+     * a reboot.
+     * @param ready Ready signal to wait for: Serial, Network, or Both.   
+     * @throws com.angryelectron.fona.FonaException on timeout.     
+     */    
+    public void simWaitForReady(int timeout, Ready ready) throws FonaException {                               
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeout) {
+            switch(ready) {
+                case SERIAL:
+                    if (isSerialReady) {
+                        return;
+                    }
+                    break;
+                case NETWORK:
+                    if ((networkStatus == Network.REGISTERED)
+                            || (networkStatus == Network.ROAMING)) {
+                        return;                        
+                    }
+                    break;                
+                case BOTH:                
+                    if (isSerialReady && 
+                            ((networkStatus == Network.REGISTERED) 
+                            || (networkStatus == Network.ROAMING))) {
+                        return;
+                    }
+                    break;
+            }
+        }
+        throw new FonaException("WaitForReady Timeout.");
+    }        
+        
     /**
      * Read Analog/Digital Converter.
      *

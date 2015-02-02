@@ -39,14 +39,34 @@ public class FonaSmsMessage {
     public Folder folder;
         
     /**
-     * Fona SMS message folders.
+     * Fona SMS message folders used with 
+     * {@link Fona#smsRead(com.angryelectron.fona.FonaSmsMessage.Folder, boolean)}.
      */
     public enum Folder {
 
+        /**
+         * Received unread messages.
+         */
         UNREAD("REC UNREAD"),
+        
+        /**
+         * Received read messages.
+         */
         READ("REC READ"),
+        
+        /**
+         * Stored unsent messages.
+         */
         UNSENT("STO UNSENT"),
+        
+        /**
+         * Stored sent messages.
+         */
         SENT("STO SENT"),
+        
+        /**
+         * All messages.
+         */
         ALL("ALL");
 
         private final String s;

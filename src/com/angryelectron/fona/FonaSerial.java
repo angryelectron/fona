@@ -89,7 +89,7 @@ class FonaSerial implements SerialPortEventListener {
             "OVER-VOLTAGE", //alarm
             "CHARGE-ONLY MODE", //charging via external charger
             "RDY", //module is ready
-            "+CFUN:", //phonebok initialization is complete
+            //"+CFUN:", //phonebok initialization is complete
             "CONNECT", //tcp/udp connection info
             "SEND OK", //data sending successful
             "CLOSED", //tcp/udp connection is closed
@@ -107,7 +107,10 @@ class FonaSerial implements SerialPortEventListener {
             "+FTPSIZE:",
             "+FTPMKD:",
             "+FTPRMD:",
-            "+FTPLIST:"
+            "+FTPLIST:",
+            "Call Ready",
+            "SMS Ready",
+            "+CGREG:"
     );
     private final Pattern unsolicitedPattern = buildUnsolicitedPattern();
 
@@ -189,7 +192,7 @@ class FonaSerial implements SerialPortEventListener {
                  * blank newlines are needed when parsing e-mail and others.
                  */
                 if (isUnsolicited(line)) {
-                    //.println("DEBUG unsolicited read: " + line);
+                    //System.out.println("DEBUG unsolicited read: " + line);
                     unsolicitedQueue.add(line);
                 } else {
                     //System.out.println("DEBUG read: " + line);
@@ -198,7 +201,7 @@ class FonaSerial implements SerialPortEventListener {
             }
         } catch (IOException ex) {
             //TODO: handle this better.
-            System.out.println(ex.getMessage());
+            //System.out.println(ex.getMessage());
         }
     }
 

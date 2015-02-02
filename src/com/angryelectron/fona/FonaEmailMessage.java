@@ -11,10 +11,10 @@ import java.util.TreeMap;
 /**
  * Fona E-mail message object.  
  * <ul>
- *   <li> Send messages: {@link com.angryelectron.fona.Fona#emailSend(com.angryelectron.fona.FonaEmailMessage)}</li>
- *   <li> Receive messages: {@link com.angryelectron.fona.Fona#emailReceive()}</li>
- *   <li> Configure SMTP: {@link com.angryelectron.fona.Fona#emailSMTP(java.lang.String, java.lang.Integer)}</li>
- *   <li> Configure POP: {@link com.angryelectron.fona.Fona#emailPOP(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}</li>
+ *   <li> Send messages: {@link com.angryelectron.fona.Fona#emailSMTPSend(com.angryelectron.fona.FonaEmailMessage) }</li>
+ *   <li> Receive messages: {@link com.angryelectron.fona.Fona#emailPOP3Get(boolean) }</li>
+ *   <li> Login to SMTP: {@link com.angryelectron.fona.Fona#emailSMTPLogin(java.lang.String, java.lang.Integer) }</li>
+ *   <li> Login to POP: {@link com.angryelectron.fona.Fona#emailPOP3Login(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String) }</li>
  * </ul>
  */
 public class FonaEmailMessage {    

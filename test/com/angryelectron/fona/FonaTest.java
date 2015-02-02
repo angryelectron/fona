@@ -4,17 +4,20 @@
  */
 package com.angryelectron.fona;
 
+import com.angryelectron.fona.Fona.Mode;
+import com.angryelectron.fona.Fona.Ready;
 import java.util.Date;
 import java.util.List;
 import org.junit.After;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 import org.junit.Before;
 
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "";
+    private static final String PORT = "/dev/ttyUSB2";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
@@ -37,17 +40,17 @@ public class FonaTest {
 
     private static final Fona fona = new Fona();
 
-    public FonaTest() {
+    public FonaTest() {           
     }
 
     @Before
-    public void setUp() throws FonaException {
+    public void setUp() throws FonaException {        
         try {
             fona.open(PORT, BAUD);
         } catch (FonaException ex) {
             System.out.println(ex.getMessage());
             throw ex;
-        }
+        }        
     }
 
     @After
@@ -138,6 +141,7 @@ public class FonaTest {
 
     /**
      * Test of batteryPercent method, of class Fona.
+     * @throws com.angryelectron.fona.FonaException
      */
     @Test
     public void testBatteryPercent() throws FonaException {
@@ -173,8 +177,7 @@ public class FonaTest {
      */
     @Test
     public void testSmsSend() throws FonaException {
-        System.out.println("smsSend");
-        assertFalse("No valid phone number specified.", SMSNUMBER.isEmpty());
+        assumeTrue(!SMSNUMBER.isEmpty());                
         fona.smsSend(SMSNUMBER, "Test SMS from FONA");
     }
 
@@ -227,9 +230,9 @@ public class FonaTest {
      */
     
     @Test
-    public void testEmailSend() throws FonaException {
+    public void testEmailSend() throws FonaException {        
+        assumeTrue(!TO_ADDRESS.isEmpty());
         System.out.println("emailSend");
-        assertFalse("E-mail recipient not specified.", TO_ADDRESS.isEmpty());
 
         if (!fona.gprsIsEnabled()) {
             fona.gprsEnable(APN, USER, PWD);
@@ -246,8 +249,9 @@ public class FonaTest {
     }
 
     @Test
-    public void testEmailReceive() throws FonaException {
-        assertFalse("POP3 server not specified", POPSERVER.isEmpty());
+    public void testEmailReceive() throws FonaException {        
+        assumeTrue(!POPSERVER.isEmpty());
+        System.out.println("emailReceive");
         if (!fona.gprsIsEnabled()) {
             fona.gprsEnable(APN, USER, PWD);
         }
@@ -267,8 +271,8 @@ public class FonaTest {
     }
     
     @Test
-    public void testEmailDelete() throws FonaException {
-        assertFalse("POP3 Server unspecified.", POPSERVER.isEmpty());
+    public void testEmailDelete() throws FonaException {        
+        assumeTrue(!POPSERVER.isEmpty());
         System.out.println("emailDelete");
         fona.emailPOP3Login(POPSERVER, POPPORT, POPUSER, POPPWD);
         try {
@@ -294,5 +298,20 @@ public class FonaTest {
         assertNotNull("No sender.", message.sender);
         assertNotNull("No timestamp.", message.timestamp);
     }
-
+    
+    @Test
+    public void testResetAndReady() throws FonaException {
+        System.out.println("resetReady");
+        fona.simReset();
+        fona.simWaitForReady(15000, Ready.BOTH);
+    }
+    
+    @Test
+    public void testSimFunctionality() throws FonaException {
+        System.out.println("simFunctionality");
+        fona.simFunctionality(Mode.MIN, false);
+        fona.simFunctionality(Mode.FLIGHT, false);
+        fona.simFunctionality(Mode.FULL, true); 
+        fona.simWaitForReady(15000, Ready.BOTH);
+    }
 }

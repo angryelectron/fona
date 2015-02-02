@@ -4,6 +4,7 @@
  */
 package com.angryelectron.fona;
 
+import com.angryelectron.fona.Fona.Network;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,7 +66,10 @@ class FonaUnsolicitedListener implements Runnable {
         while (isRunning) {
             try {
                 String response = queue.take();  //blocks until data available
-                if (!dispatchSms(response) || !response.equals("SHUTDOWN")) {
+                if (!dispatchSms(response) 
+                        && !dispatchReady(response) 
+                        && !response.equals("SHUTDOWN")) {
+                    //System.out.println("DEBUG - Unknown reponse: " + response);
                     internalHandler.onError("Unknown unsolicited response: " + response);
                 }
             } catch (InterruptedException ex) {
@@ -90,5 +94,25 @@ class FonaUnsolicitedListener implements Runnable {
         }
         return false;
     }
-
+    
+    /**
+     * Check if response is from the serial or network modules changing ready
+     * states.
+     * @param response The unsolicited message.
+     * @return true if response is a ready/status change message, otherwise false.
+     */
+    private boolean dispatchReady(String response) {
+        if (response.contains("RDY")) {
+            internalHandler.onSerialReady();
+            return true;        
+        } else if (response.contains("+CGREG:")) {
+            Pattern pattern = Pattern.compile("\\+CGREG: ([0-5])");
+            Matcher matcher = pattern.matcher(response);
+            if (matcher.find()) {
+                Integer status = Integer.parseInt(matcher.group(1));
+                internalHandler.onNetworkStatusChange(Network.values()[status]);                
+            }            
+        }
+        return false;
+    }
 }
