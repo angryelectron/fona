@@ -53,7 +53,8 @@ settings.  Then run 'ant test' (or run from the Netbeans IDE).
 
 Use
 ---
-Build, then add ./dist/fona.jar to your project.  
+Build or [download](https://github.com/angryelectron/fona/releases), then add 
+fona-VERSION.jar to your project.  
 
 You will also need to add the RXTX library to your project.  You can use
 ./lib/RXTXcomm-2.2pre2.jar if it is not already part of your class path.
