@@ -73,7 +73,7 @@
     <target name="default-notest" depends="jar,javadoc" description="Build project and 
     documentation without tests." />
     
-    <property name="version" value="0.9"/>
+    <property name="version" value="0.91"/>
     
     <target name="-post-jar" description="prepare distribution" depends="javadoc">
         <jar compress="${jar.compress}" basedir="${src.dir}" jarfile="${dist.dir}/${application.title}-${version}-sources.jar"/>
