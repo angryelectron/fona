@@ -17,7 +17,7 @@ import org.junit.Before;
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "/dev/ttyUSB2";
+    private static final String PORT = "/dev/tty.usbserial-FTF7U8NK";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
@@ -307,10 +307,9 @@ public class FonaTest {
     public void testResetAndReady() throws FonaException {
         System.out.println("resetReady");
         for (Mode mode : Mode.values()) {
-            System.out.println(mode.name());
             fona.simFunctionality(mode);
             fona.simReset();
-            fona.simWaitForReady(20000, Ready.BOTH);
+            fona.simWaitForReady(15000, Ready.BOTH);
         }
     }
     
@@ -336,6 +335,7 @@ public class FonaTest {
         fona.simFunctionality(Mode.FULL); //1
         fona.simFunctionality(Mode.FLIGHT); //4
         fona.simFunctionality(Mode.FULL); //6
+        fona.simWaitForReady(15000, Ready.NETWORK);
     }
     
     @Test
