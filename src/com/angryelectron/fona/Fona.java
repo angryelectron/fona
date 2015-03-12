@@ -738,7 +738,7 @@ public class Fona implements FonaEventHandler {
     
     /**
      * Functionality modes used with 
-     * {@link #simFunctionality(com.angryelectron.fona.Fona.Mode, boolean)}.
+     * {@link #simFunctionality(com.angryelectron.fona.Fona.Mode)}.
      */
     public enum Mode {
         /**
@@ -784,10 +784,9 @@ public class Fona implements FonaEventHandler {
      * }
      * </pre>
      * @param mode new Functionality Mode: MIN, FULL, or FLIGHT.
-     * @param reset When true, module will reset and block until module is ready.
      * @throws com.angryelectron.fona.FonaException
      */
-    public void simFunctionality(Mode mode, boolean reset) throws FonaException {                       
+    public void simFunctionality(Mode mode) throws FonaException {                       
         /* get current mode */
         String response = serial.atCommand("AT+CFUN?");
         Pattern pattern = Pattern.compile("\\+CFUN: ([014])\n\nOK");
@@ -801,13 +800,15 @@ public class Fona implements FonaEventHandler {
         switch(mode) {
             case MIN:
                 if (currentMode == 4) {
-                    simFunctionality(Mode.FULL, false);                    
+                    /* can't switch directly from flight to min */
+                    simFunctionality(Mode.FULL);                    
                 }
                 newMode = 0;
                 break;            
             case FLIGHT:
                 if (currentMode == 0) {
-                    simFunctionality(Mode.FULL, false);                    
+                    /* can't switch directly to min to flight */
+                    simFunctionality(Mode.FULL);                    
                 }
                 newMode = 4;
                 break;
@@ -816,29 +817,26 @@ public class Fona implements FonaEventHandler {
                 newMode = 1;
                 break;
         }
-        if (reset) {
-            serial.atCommandOK("AT+CFUN=" + newMode + ",1");            
-        } else {
-            serial.atCommandOK("AT+CFUN=" + newMode);
-        }
+        serial.atCommandOK("AT+CFUN=" + newMode);
     }
     
     /**
-     * Reset / reboot the SIM800 module.  Preserves the current functionality
-     * mode.  Be sure to wait for serial and/or network to become ready after
-     * reboot.  See {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)}.
-     * @throws FonaException If current functionality mode cannot be determined.
+     * Reset / reboot the SIM800 module. Reboots into FULL mode. Be sure to wait
+     * for serial and/or network to become ready after reboot. See
+     * {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)}.
+     *
+     * @throws FonaException
      */
     public void simReset() throws FonaException {
-        /* get current mode */
-        String response = serial.atCommand("AT+CFUN?");
-        Pattern pattern = Pattern.compile("\\+CFUN: ([014])\n\nOK");
-        Matcher matcher = pattern.matcher(response);
-        if (!matcher.find()) {
-            throw new FonaException("Functionality query failed: " + response);
-        }        
-        Integer currentMode = Integer.parseInt(matcher.group(1));   
-        serial.atCommandOK("AT+CFUN=" + currentMode + ",1");
+        /**
+         * While the docs say you can't reset in FLIGHT mode, testing shows that
+         * reseting depends on the current mode and the new mode. Keep things
+         * simple by resetting to FULL mode.
+         */
+        networkStatus = Network.UNKNOWN;
+        isSerialReady = false;
+        serial.atCommandOK("AT+CFUN=1");
+        serial.atCommandOK("AT+CFUN=" + 1 + ",1");
     }
     
     /**

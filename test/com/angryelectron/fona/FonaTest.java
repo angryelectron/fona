@@ -299,28 +299,51 @@ public class FonaTest {
         assertNotNull("No timestamp.", message.timestamp);
     }
     
+    /**
+     * Test resetting from each functionality mode.
+     * @throws FonaException 
+     */
     @Test
     public void testResetAndReady() throws FonaException {
         System.out.println("resetReady");
-        fona.simReset();
-        fona.simWaitForReady(15000, Ready.BOTH);
+        for (Mode mode : Mode.values()) {
+            System.out.println(mode.name());
+            fona.simFunctionality(mode);
+            fona.simReset();
+            fona.simWaitForReady(20000, Ready.BOTH);
+        }
     }
     
+    /**
+     * Test transition between different functionality modes.
+     * 
+     * 1 Min / Full
+     * 2 Min / Flight
+     * 3 Full / Min
+     * 4 Full / Flight
+     * 5 Flight / Min
+     * 6 Flight / Full
+     * @throws FonaException 
+     */
     @Test
     public void testSimFunctionality() throws FonaException {
         System.out.println("simFunctionality");
-        fona.simFunctionality(Mode.MIN, false);
-        fona.simFunctionality(Mode.FLIGHT, false);
-        fona.simFunctionality(Mode.FULL, true); 
-        fona.simWaitForReady(15000, Ready.BOTH);
+        fona.simFunctionality(Mode.MIN);
+        fona.simFunctionality(Mode.FLIGHT); //2
+        fona.simFunctionality(Mode.MIN); //5
+        fona.simFunctionality(Mode.FULL); //1
+        fona.simFunctionality(Mode.MIN); //3
+        fona.simFunctionality(Mode.FULL); //1
+        fona.simFunctionality(Mode.FLIGHT); //4
+        fona.simFunctionality(Mode.FULL); //6
     }
     
     @Test
     public void testSleepAndWake() throws FonaException {
         System.out.println("sleepAndWake");
-        fona.simFunctionality(Mode.MIN, false);
+        fona.simFunctionality(Mode.MIN);
         assertFalse(fona.gprsIsEnabled());
-        fona.simFunctionality(Mode.FULL, false);
+        fona.simFunctionality(Mode.FULL);
         fona.simWaitForReady(15000, Ready.NETWORK);
         fona.gprsEnable(APN, USER, PWD);
         assertTrue(fona.gprsIsEnabled());
