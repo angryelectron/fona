@@ -5,6 +5,7 @@
 package com.angryelectron.fona;
 
 import com.angryelectron.fona.Fona.Mode;
+import com.angryelectron.fona.Fona.Network;
 import com.angryelectron.fona.Fona.Ready;
 import java.util.Date;
 import java.util.List;
@@ -17,7 +18,7 @@ import org.junit.Before;
 public class FonaTest {
 
     //TODO: move these to a properties file so others can test.
-    private static final String PORT = "/dev/tty.usbserial-FTF7U8NK";
+    private static final String PORT = "/dev/ttyUSB1";
     private static final Integer BAUD = 115200;
 
     //Credentials for Rogers Wireless required for testing GPRS.
@@ -103,10 +104,15 @@ public class FonaTest {
     public void testGprs() throws FonaException {
         System.out.println("gprsEnable");
         fona.gprsDisable();
+        assertEquals(Network.UNREGISTERED, fona.networkStatus);
         assertFalse(fona.gprsIsEnabled());
+        
         fona.gprsEnable(APN, USER, PWD);
+        assertEquals(Network.REGISTERED, fona.networkStatus);
         assertTrue(fona.gprsIsEnabled());
+        
         fona.gprsDisable();
+        assertEquals(fona.networkStatus, Network.UNREGISTERED);
         assertFalse(fona.gprsIsEnabled());
     }
 
@@ -307,9 +313,10 @@ public class FonaTest {
     public void testResetAndReady() throws FonaException {
         System.out.println("resetReady");
         for (Mode mode : Mode.values()) {
+            System.out.println(mode.name());
             fona.simFunctionality(mode);
             fona.simReset();
-            fona.simWaitForReady(15000, Ready.BOTH);
+            fona.simWaitForReady(20000, Ready.BOTH);
         }
     }
     
@@ -347,5 +354,5 @@ public class FonaTest {
         fona.simWaitForReady(15000, Ready.NETWORK);
         fona.gprsEnable(APN, USER, PWD);
         assertTrue(fona.gprsIsEnabled());
-    }
+    }    
 }
