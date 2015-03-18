@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
  */
 class FonaSerial implements SerialPortEventListener {
 
+    private final boolean DEBUG = false;
     private SerialPort serialPort;
     private OutputStream outStream;
     private InputStream inStream;
@@ -192,10 +193,14 @@ class FonaSerial implements SerialPortEventListener {
                  * blank newlines are needed when parsing e-mail and others.
                  */
                 if (isUnsolicited(line)) {
-                    //System.out.println("DEBUG unsolicited read: " + line);
+                    if (DEBUG) {
+                        System.out.println("DEBUG unsolicited read: " + line);
+                    }
                     unsolicitedQueue.add(line);
                 } else {
-                    //System.out.println("DEBUG read: " + line);
+                    if (DEBUG) {
+                    System.out.println("DEBUG read: " + line);
+                    }
                     lineQueue.add(line);
                 }
             }
