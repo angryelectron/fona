@@ -4,6 +4,7 @@
  */
 package com.angryelectron.fona;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -93,11 +94,11 @@ public class Fona implements FonaEventHandler {
          * setting the property on the command line.
          */
         Properties properties = System.getProperties();
-        String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", "");
+        String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", port);
         if (currentPorts.equals(port)) {
             properties.setProperty("gnu.io.rxtx.SerialPorts", port);
         } else {
-            properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + ":" + port);
+            properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + File.pathSeparator + port);
         }        
         properties.setProperty("gnu.io.rxtx.NoVersionOutput", "true");
 
