@@ -38,7 +38,7 @@ public interface FonaEventHandler {
      * Called whenever the network registration status changes.  This event is
      * used internally, so does not need to be implemented for normal operation,
      * but is provided should an application have a need for it.
-     * @param status 
+     * @param status The updated network status.
      */
     public void onNetworkStatusChange(Network status);
 }

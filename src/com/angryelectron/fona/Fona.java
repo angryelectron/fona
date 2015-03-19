@@ -28,17 +28,17 @@ import javax.xml.ws.http.HTTPException;
  * by contributing to the
  * <a href="http://github.com/angryelectron/fona">GitHub Project</a>.</p>
  *
- * <p>
- * <b>Notes</b>
+ 
+ * <p><b>Notes</b></p>
  * <ul>
  *
- * <li>All network-based operations use a hardcoded Bearer Profile Identifier of
+ * <li>All network-based operations use a hard coded Bearer Profile Identifier of
  * 1.</li>
  *
  * <li>Some settings, required for correct operation of this API, will be
  * written to NVRAM. See {@link #open(java.lang.String, java.lang.Integer)} for
- * a details.
- * </p>
+ * a details.</li>
+ * </ul>
  */
 public class Fona implements FonaEventHandler {
 
@@ -64,13 +64,13 @@ public class Fona implements FonaEventHandler {
      * Open serial port connection to SIM800 module. This method will alter the
      * configuration of the SIM8000 with settings necessary for the proper
      * operation of the API, writing the values to NVRAM:
-     * <br/>
+     * <br>
      * <ul>
      * <li>Auto-baud is disabled (AT+IPR=baud)</li>
      * <li>Local echo is disabled (ATE0).</li>
      * <li>Network registration unsolicited result code is enabled
      * (AT+CGREG=1)</li>
-     * <li>All other settings restored to factory-defaults (AT&F)</li>
+     * <li>All other settings restored to factory-defaults (AT&amp;F)</li>
      * </ul>
      *
      * <p>
@@ -84,7 +84,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param port Port name (/dev/ttyUSB1, COM7, etc.)
      * @param baud Baud rate. 115200 is recommended.
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if port cannot be opened
      */
     public void open(String port, Integer baud) throws FonaException {
         /**
@@ -135,7 +135,7 @@ public class Fona implements FonaEventHandler {
      * @param port Port name (/dev/ttyUSB1, COM7, etc.)
      * @param baud Baud rate. 115200 is recommended.
      * @param handler FonaEventHandler for handling incoming SMS and Calls.
-     * @throws FonaException
+     * @throws FonaException if port cannot be opened
      */
     public void open(String port, Integer baud, FonaEventHandler handler) throws FonaException {
         this.applicationEventHandler = handler;
@@ -160,7 +160,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param server SMTP server hostname or IP.
      * @param port SMTP port, typically 25.
-     * @throws FonaException
+     * @throws FonaException if smtp configuration fails
      */
     public void emailSMTPLogin(String server, Integer port) throws FonaException {
         /* this number must match the bearer profide ID used in enableGPRS() */
@@ -183,7 +183,7 @@ public class Fona implements FonaEventHandler {
      * @param port SMTP port, typically 25.
      * @param user SMTP username.
      * @param password SMTP password.
-     * @throws FonaException
+     * @throws FonaException if configuration fails
      */
     public void emailSMTPLogin(String server, Integer port, String user, String password) throws FonaException {
         emailSMTPLogin(server, port);
@@ -198,7 +198,7 @@ public class Fona implements FonaEventHandler {
      * @param port POP port. Typically 110.
      * @param user POP username.
      * @param password POP password.
-     * @throws FonaException
+     * @throws FonaException if configuration fails
      */
     public void emailPOP3Login(String server, Integer port, String user, String password) throws FonaException {
         FonaPOP3 pop3 = new FonaPOP3(serial);
@@ -219,7 +219,7 @@ public class Fona implements FonaEventHandler {
      * {@link #emailSMTPLogin(java.lang.String, java.lang.Integer, java.lang.String, java.lang.String)}
      *
      * @param email FonaEmailMessage object.
-     * @throws FonaException
+     * @throws FonaException if email cannot be send
      */
     public void emailSMTPSend(FonaEmailMessage email) throws FonaException {
 
@@ -281,7 +281,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param markAsRead if true, message will be marked as read.
      * @return A list of {@link com.angryelectron.fona.FonaEmailMessage}.
-     * @throws FonaException
+     * @throws FonaException if email cannot be downloaded
      */
     public List<FonaEmailMessage> emailPOP3Get(boolean markAsRead) throws FonaException {
         List<FonaEmailMessage> messages = new ArrayList<>();
@@ -298,6 +298,8 @@ public class Fona implements FonaEventHandler {
      *
      * @param messageId The ID of the message on the POP3 server (not the
      * "Message-id" header value).
+     * @throws com.angryelectron.fona.FonaException if id is invalid or message
+     * cannot be deleted.
      */
     public void emailPOP3Delete(int messageId) throws FonaException {
         FonaPOP3 pop3 = new FonaPOP3(serial);
@@ -309,7 +311,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param pin Pin number (1-3).
      * @param value 1=high, 0=low
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if GPIO cannot be set
      */
     public void gpioSetOutput(int pin, int value) throws FonaException {
         if (pin < 1 || pin > 3) {
@@ -329,7 +331,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param pin Pin number (1-3).
      * @return 1=high, 0=low
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if GPIO cannot be read
      */
     public int gpioGetInput(int pin) throws FonaException {
         if (pin < 1 || pin > 3) {
@@ -349,7 +351,7 @@ public class Fona implements FonaEventHandler {
      * Configure GPIO pin as an input.
      *
      * @param pin Pin number (1-3).
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if GPIO cannot be configured
      */
     public void gpioSetInput(int pin) throws FonaException {
         if (pin < 1 || pin > 3) {
@@ -370,7 +372,7 @@ public class Fona implements FonaEventHandler {
      * @param apn Cell provider APN address.
      * @param user APN user.
      * @param password APN password.
-     * @throws FonaException
+     * @throws FonaException if GPRS cannot be enabled.
      */
     public void gprsEnable(String apn, String user, String password) throws FonaException {
         gprsEnable(apn, user, password, 15000);
@@ -383,7 +385,7 @@ public class Fona implements FonaEventHandler {
      * @param user APN user name.
      * @param password APN password.
      * @param timeout Max time to wait, in milliseconds.
-     * @throws FonaException
+     * @throws FonaException if GPRS cannot be enabled
      */
     public void gprsEnable(String apn, String user, String password, Integer timeout) throws FonaException {
         if (gprsIsEnabled()) {
@@ -410,7 +412,7 @@ public class Fona implements FonaEventHandler {
     /**
      * Disable GPRS.
      *
-     * @throws FonaException
+     * @throws FonaException if GPRS cannot be disabled
      */
     public void gprsDisable() throws FonaException {
         try {
@@ -440,7 +442,7 @@ public class Fona implements FonaEventHandler {
      * Check if GPRS is enabled.
      *
      * @return true if GPRS is enabled and authenticated.
-     * @throws FonaException
+     * @throws FonaException if GPRS status cannot be determined
      */
     public boolean gprsIsEnabled() throws FonaException {
 
@@ -479,7 +481,7 @@ public class Fona implements FonaEventHandler {
      *
      * @param url URL.
      * @return HTTP response.
-     * @throws FonaException
+     * @throws FonaException if GPRS is not enabled or GET request fails
      */
     public String gprsHttpGet(String url) throws FonaException {
         if (!url.toLowerCase().startsWith("http")) {
@@ -534,7 +536,7 @@ public class Fona implements FonaEventHandler {
      * Get battery voltage.
      *
      * @return Battery voltage in millivolts.
-     * @throws FonaException
+     * @throws FonaException if voltage cannot be read
      */
     public Integer batteryVoltage() throws FonaException {
         String response = serial.atCommand("AT+CBC");
@@ -550,7 +552,7 @@ public class Fona implements FonaEventHandler {
      * Get battery charge level.
      *
      * @return Battery charge, as a percentage.
-     * @throws FonaException
+     * @throws FonaException if charge level cannot be read
      */
     public Integer batteryPercent() throws FonaException {
         String response = serial.atCommand("AT+CBC");
@@ -565,7 +567,7 @@ public class Fona implements FonaEventHandler {
      * Get battery charging state.
      *
      * @return 0=not charging, 1=charging, 2=charging finished
-     * @throws FonaException
+     * @throws FonaException if charging state cannot be determined
      */
     public Integer batteryChargingState() throws FonaException {
         String response = serial.atCommand("AT+CBC");
@@ -582,7 +584,8 @@ public class Fona implements FonaEventHandler {
      * has not been enabled.
      *
      * @return DateTime in UTC.
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if GPRS is not enabled or time
+     * cannot be fetched
      */
     public Date gprsTime() throws FonaException {
         String response = serial.atCommand("AT+CIPGSMLOC=2,1");
@@ -617,7 +620,7 @@ public class Fona implements FonaEventHandler {
      * @param messageId ID of message.
      * @param markAsRead If true, UNREAD messages will be marked as READ.
      * @return SMS message.
-     * @throws FonaException
+     * @throws FonaException if messageId is invalid or message cannot be read.
      */
     public FonaSmsMessage smsRead(int messageId, boolean markAsRead) throws FonaException {
         FonaSms sms = new FonaSms(serial);
@@ -628,9 +631,9 @@ public class Fona implements FonaEventHandler {
      * Read all SMS messages.
      *
      * @param folder Folder containing messages.
-     * @param markAsRead
+     * @param markAsRead If true, message will be marked as read after it is retrieved.
      * @return A list of messages. List is empty if no messages were found.
-     * @throws FonaException
+     * @throws FonaException if SMS messages cannot be retrieved.
      */
     public List<FonaSmsMessage> smsRead(FonaSmsMessage.Folder folder, boolean markAsRead) throws FonaException {
         FonaSms sms = new FonaSms(serial);
@@ -741,7 +744,7 @@ public class Fona implements FonaEventHandler {
      * ignored. In general, it is probably best to use hardware-specific methods
      * (like FONA's KEY line) to control the power state of the device.
      *
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if fona is not responding.
      */
     public void simPowerOff() throws FonaException {
         serial.atCommand("AT+CPOWD=0");
@@ -752,13 +755,12 @@ public class Fona implements FonaEventHandler {
      * Sleep Mode. When enabled, the SIM module enters sleep mode when DTR is
      * high, and wakes when DTR is low. When asleep, the serial port is
      * inaccessible until 50ms after wake-up.
-     * <br/>
      * <p>
      * <b>Note:</b> FONA modules don't use the DTR pin, so if sleep is enabled
      * the only way to wake-up is to reset/power-cycle.</p>
      *
      * @param enable Use low-power sleep mode when true.
-     * @throws FonaException
+     * @throws FonaException if fona is not responding
      */
     public void simSleepMode(boolean enable) throws FonaException {
         if (enable) {
@@ -832,7 +834,7 @@ public class Fona implements FonaEventHandler {
      * </pre>
      *
      * @param mode new Functionality Mode: MIN, FULL, or FLIGHT.
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if mode cannot be set
      */
     public void simFunctionality(Mode mode) throws FonaException {
         /* get current mode */
@@ -873,7 +875,7 @@ public class Fona implements FonaEventHandler {
      * for serial and/or network to become ready after reboot. See
      * {@link #simWaitForReady(int, com.angryelectron.fona.Fona.Ready)}.
      *
-     * @throws FonaException
+     * @throws FonaException if fona is not responding
      */
     public void simReset() throws FonaException {
         /**
@@ -974,6 +976,8 @@ public class Fona implements FonaEventHandler {
      * Unlock SIM card.
      *
      * @param password SIM card password.
+     * @throws com.angryelectron.fona.FonaException if error is related to ME
+     * functionality.
      */
     public void simUnlock(String password) throws FonaException {
         serial.atCommandOK("AT+CPIN=" + password);
@@ -985,7 +989,7 @@ public class Fona implements FonaEventHandler {
      * @return RSSI in dBm between -54dBm and -115dBm. -999dBM indicates that
      * the signal strength is not known or is undetectable.
      *
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if RSSI cannot be read
      */
     public Integer simRSSI() throws FonaException {        
         String response = serial.atCommand("AT+CSQ");
@@ -1017,7 +1021,8 @@ public class Fona implements FonaEventHandler {
      * Name of Service Provider. Value is read from the SIM.
      *
      * @return Name of Service Provider.
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if no SIM / name cannot be
+     * read.
      */
     public String simProvider() throws FonaException {
         String response = serial.atCommand("AT+CSPN?");
@@ -1031,7 +1036,7 @@ public class Fona implements FonaEventHandler {
      * Get temperature of SIM800 module.
      *
      * @return degrees Celsius -40 - 90
-     * @throws com.angryelectron.fona.FonaException
+     * @throws com.angryelectron.fona.FonaException if temperature cannot be read
      */
     public Double temperature() throws FonaException {
         String response = serial.atCommand("AT+CMTE?");
