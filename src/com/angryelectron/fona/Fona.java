@@ -94,7 +94,11 @@ public class Fona implements FonaEventHandler {
          */
         Properties properties = System.getProperties();
         String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", "");
-        properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + ":" + port);
+        if (currentPorts.equals(port)) {
+            properties.setProperty("gnu.io.rxtx.SerialPorts", port);
+        } else {
+            properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + ":" + port);
+        }        
         properties.setProperty("gnu.io.rxtx.NoVersionOutput", "true");
 
         /**
