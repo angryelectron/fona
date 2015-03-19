@@ -117,6 +117,11 @@ public class Fona implements FonaEventHandler {
         serial.atCommandOK("AT+CGREG=1"); //turn on unsolicited network status 
         serial.atCommandOK("AT&W"); //persist settings through reboot/reset
 
+        /**
+         * On reboot, GPRS is in a strange state:  enabled, but without a valid
+         * bearer profile.  Disable GPRS so it is in a known state.
+         */
+        gprsDisable();
     }
 
     /**

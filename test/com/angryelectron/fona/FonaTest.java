@@ -94,7 +94,15 @@ public class FonaTest {
         fona.gpioSetOutput(pin, value); //pin is an output
         fona.gpioGetInput(pin); //should throw exception.  can't read output pins.
     }
-
+    
+    @Test 
+    public void testResetAndGprs() throws FonaException {
+        fona.simReset();
+        fona.simWaitForReady(15000, Ready.BOTH);
+        fona.gprsEnable(APN, USER, PWD);
+        fona.gprsEnable(APN, USER, PWD);
+    }
+    
     /**
      * Test of gprsEnable method, of class Fona.
      *
@@ -124,9 +132,7 @@ public class FonaTest {
     @Test
     public void testGprsHttpGet() throws FonaException {
         System.out.println("gprsHttpGet");
-        if (!fona.gprsIsEnabled()) {
-            fona.gprsEnable(APN, USER, PWD);
-        }
+        fona.gprsEnable(APN, USER, PWD);        
         assertTrue("GPRS not enabled", fona.gprsIsEnabled());
 
         String response = fona.gprsHttpGet("http://httpbin.org/user-agent");
@@ -167,9 +173,7 @@ public class FonaTest {
     @Test
     public void testTime() throws FonaException {
         System.out.print("testTime: ");
-        if (!fona.gprsIsEnabled()) {
-            fona.gprsEnable(APN, USER, PWD);
-        }
+        fona.gprsEnable(APN, USER, PWD);        
         Date date = fona.gprsTime();
         System.out.println(date);
         assertNotNull(date);
