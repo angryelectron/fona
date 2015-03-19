@@ -7,7 +7,7 @@
 <!-- the Compile on Save feature is turned off for the project. -->
 <!-- You can turn off the Compile on Save (or Deploy on Save) setting -->
 <!-- in the project's Project Properties dialog box.-->
-<project name="fona" default="default" basedir=".">
+<project name="fona" default="default-notest" basedir=".">
     <description>Builds, tests, and runs the project fona.</description>
     <import file="nbproject/build-impl.xml"/>
     <!--
@@ -73,7 +73,7 @@
     <target name="default-notest" depends="jar,javadoc" description="Build project and 
     documentation without tests." />
     
-    <property name="version" value="0.91"/>
+    <property name="version" value="0.92"/>
     
     <target name="-post-jar" description="prepare distribution" depends="javadoc">
         <jar compress="${jar.compress}" basedir="${src.dir}" jarfile="${dist.dir}/${application.title}-${version}-sources.jar"/>
