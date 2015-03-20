@@ -96,14 +96,13 @@ public class Fona implements FonaEventHandler {
          * setting the property on the command line.
          */
         Properties properties = System.getProperties();
-        String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", port);
-        if (currentPorts.equals(port)) {
+        String currentPorts = properties.getProperty("gnu.io.rxtx.SerialPorts", "");
+        if (currentPorts.isEmpty()) {
             properties.setProperty("gnu.io.rxtx.SerialPorts", port);
-        } else {
+        } else if (!currentPorts.contains(port)) {
             properties.setProperty("gnu.io.rxtx.SerialPorts", currentPorts + File.pathSeparator + port);
         }        
         properties.setProperty("gnu.io.rxtx.NoVersionOutput", "true");
-
         /**
          * Connect the serial port, listener thread, and this class so
          * unsolicited responses can be handled.
