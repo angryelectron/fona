@@ -60,6 +60,8 @@ public class Fona implements FonaEventHandler {
     private volatile boolean isCallReady = false;
     private volatile boolean isSmsReady = false;
     volatile Network networkStatus = Network.UNKNOWN;
+    
+    private static String NEWLINE = System.getProperty("line.separator");
 
     /**
      * Open serial port connection to SIM800 module. This method will alter the
@@ -269,7 +271,7 @@ public class Fona implements FonaEventHandler {
          * Send it.
          */
         serial.atCommandOK("AT+SMTPSEND");
-        String response = serial.expect("+SMTPSEND", 30000);
+        String response = serial.expect("+SMTPSEND", 30000).trim();
         if (!response.equals("+SMTPSEND: 1")) {
             throw new FonaException("Email send failed: " + response);
         }
@@ -525,7 +527,8 @@ public class Fona implements FonaEventHandler {
         /**
          * Response format: \n+HTTPREAD:<data_len>\n<data>\nOK
          */
-        Pattern pattern = Pattern.compile("\n\\+HTTPREAD: [0-9]+\n(.*)\nOK", Pattern.DOTALL);
+        Pattern pattern = Pattern.compile(NEWLINE + "\\+HTTPREAD: [0-9]+" +
+                NEWLINE + "(.*)" + NEWLINE + "OK", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(response);
         if (!matcher.find()) {
             throw new FonaException("HTTP Read Failed: " + response);
@@ -840,7 +843,7 @@ public class Fona implements FonaEventHandler {
     public void simFunctionality(Mode mode) throws FonaException {
         /* get current mode */
         String response = serial.atCommand("AT+CFUN?");
-        Pattern pattern = Pattern.compile("\\+CFUN: ([014])\n\nOK");
+        Pattern pattern = Pattern.compile("\\+CFUN: ([014])" + NEWLINE + NEWLINE + "OK");
         Matcher matcher = pattern.matcher(response);
         if (!matcher.find()) {
             throw new FonaException("Functionality query failed: " + response);
@@ -994,7 +997,8 @@ public class Fona implements FonaEventHandler {
      */
     public Integer simRSSI() throws FonaException {        
         String response = serial.atCommand("AT+CSQ");
-        Pattern pattern = Pattern.compile("\n\\+CSQ: ([0-9]{1,2}),[0-9]\n\nOK", Pattern.DOTALL);
+        Pattern pattern = Pattern.compile(NEWLINE + "\\+CSQ: ([0-9]{1,2}),[0-9]" + NEWLINE 
+                + NEWLINE + "OK", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(response);
         if (!matcher.find()) {
             throw new FonaException("Signal quality report failed: " + response);
