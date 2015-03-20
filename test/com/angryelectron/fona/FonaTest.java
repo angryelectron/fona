@@ -33,8 +33,8 @@ public class FonaTest {
     private static final String TO_NAME = "";
     private static final String POPSERVER = "";
     private static final Integer POPPORT = 110;
-    private static final String POPUSER = "";
-    private static final String POPPWD = "";
+    private static final String POPUSER = "fona";
+    private static final String POPPWD = "fona";
 
     //SMS Settings.
     private static final String SMSNUMBER = "";
@@ -243,10 +243,7 @@ public class FonaTest {
     public void testEmailSend() throws FonaException {        
         assumeTrue(!TO_ADDRESS.isEmpty());
         System.out.println("emailSend");
-
-        if (!fona.gprsIsEnabled()) {
-            fona.gprsEnable(APN, USER, PWD);
-        }
+        fona.gprsEnable(APN, USER, PWD);
         fona.emailSMTPLogin(SMTP, 25);
 
         FonaEmailMessage email = new FonaEmailMessage();
@@ -262,19 +259,19 @@ public class FonaTest {
     public void testEmailReceive() throws FonaException {        
         assumeTrue(!POPSERVER.isEmpty());
         System.out.println("emailReceive");
-        if (!fona.gprsIsEnabled()) {
-            fona.gprsEnable(APN, USER, PWD);
-        }
+        fona.gprsEnable(APN, USER, PWD);
         fona.emailPOP3Login(POPSERVER, POPPORT, POPUSER, POPPWD);
         try {
             List<FonaEmailMessage> messages = fona.emailPOP3Get(false);
             assertFalse("No messages.", messages.isEmpty());
-            FonaEmailMessage email = messages.get(1);
+            FonaEmailMessage email = messages.get(0);
             assertNotNull("No subject.", email.subject);
             assertFalse("No subject", email.subject.isEmpty());
             assertFalse("No body.", email.body.isEmpty());
             assertFalse("No to address.", email.to.isEmpty());
             assertFalse("No from address.", email.from.isEmpty());
+            System.out.println(email.subject);
+            System.out.println(email.body);
         } finally {
             fona.emailPOP3Logout();
         }
@@ -284,6 +281,7 @@ public class FonaTest {
     public void testEmailDelete() throws FonaException {        
         assumeTrue(!POPSERVER.isEmpty());
         System.out.println("emailDelete");
+        fona.gprsEnable(APN, USER, PWD);
         fona.emailPOP3Login(POPSERVER, POPPORT, POPUSER, POPPWD);
         try {
             fona.emailPOP3Delete(1);
